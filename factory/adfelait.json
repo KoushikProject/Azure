@@ -1,0 +1,9 @@
+{
+	"name": "adfelait",
+	"location": "centralindia",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "552768d9-2172-4929-91d6-43f7375319c6",
+		"tenantId": "d98e16c4-4ec4-4b35-ad39-b3d3da3e4972"
+	}
+}
