@@ -1,0 +1,34 @@
+{
+	"name": "Lookup_Source",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "AzureSqlDatabase1",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [
+			{
+				"name": "sourcefolder",
+				"type": "varchar"
+			},
+			{
+				"name": "sourcefile",
+				"type": "varchar"
+			},
+			{
+				"name": "targetschema",
+				"type": "varchar"
+			},
+			{
+				"name": "targettable",
+				"type": "varchar"
+			}
+		],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": "transfer"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

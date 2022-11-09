@@ -1,0 +1,98 @@
+{
+	"name": "Assert",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "Asser_Source",
+						"type": "DatasetReference"
+					},
+					"name": "source1"
+				},
+				{
+					"dataset": {
+						"referenceName": "Assert_dept",
+						"type": "DatasetReference"
+					},
+					"name": "source2"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "Assert_dest",
+						"type": "DatasetReference"
+					},
+					"name": "sink1"
+				}
+			],
+			"transformations": [
+				{
+					"name": "assert1"
+				},
+				{
+					"name": "derivedColumn1"
+				},
+				{
+					"name": "filter1"
+				},
+				{
+					"name": "select1"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          id as short,",
+				"          name as string,",
+				"          dob as string,",
+				"          dept as short",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false) ~> source1",
+				"source(output(",
+				"          dept as short,",
+				"          depname as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false) ~> source2",
+				"source1, source2 assert(expectTrue(!isNull(toDate(dob,'yyyyMMdd')), false, 'CheckDob'),",
+				"     expectExists(source1@dept == source2@dept, false, 'CheckDeptId'),",
+				"     expectUnique(id, false, 'CheckId')) ~> assert1",
+				"assert1 derive(Error = isError(),",
+				"          ErrorOfDob = hasError('CheckDob'),",
+				"          ErrorOfUnknownDeptId = hasError('CheckDeptId')) ~> derivedColumn1",
+				"derivedColumn1 filter(isError()==false()) ~> filter1",
+				"filter1 select(mapColumn(",
+				"          id,",
+				"          name,",
+				"          dob,",
+				"          dept = source1@dept,",
+				"          Error",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> select1",
+				"select1 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          id as string,",
+				"          name as string,",
+				"          dob as string,",
+				"          dept as string,",
+				"          Employee_id as string,",
+				"          CurrentAge as string",
+				"     ),",
+				"     partitionFileNames:['assertoutput.csv'],",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     partitionBy('hash', 1)) ~> sink1"
+			]
+		}
+	}
+}

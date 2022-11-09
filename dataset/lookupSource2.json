@@ -1,0 +1,42 @@
+{
+	"name": "lookupSource2",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "AzureDataLakeStorage1",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "DelimitedText",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"fileName": "lookup2.txt",
+				"folderPath": "input",
+				"fileSystem": "container2"
+			},
+			"columnDelimiter": ",",
+			"escapeChar": "\\",
+			"firstRowAsHeader": true,
+			"quoteChar": "\""
+		},
+		"schema": [
+			{
+				"name": "mark_id",
+				"type": "String"
+			},
+			{
+				"name": "mark1",
+				"type": "String"
+			},
+			{
+				"name": "mark2",
+				"type": "String"
+			},
+			{
+				"name": "grade",
+				"type": "String"
+			}
+		]
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

@@ -1,0 +1,9 @@
+{
+	"name": "koushik-ADF",
+	"location": "centralindia",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "9e8a4564-9ded-46ff-b953-5d9f062c5831",
+		"tenantId": "d98e16c4-4ec4-4b35-ad39-b3d3da3e4972"
+	}
+}
