@@ -1,0 +1,9 @@
+{
+	"name": "test-adf-elait1989",
+	"location": "centralindia",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "3831c5dc-bbb6-4137-8317-ef4a6118ec24",
+		"tenantId": "d98e16c4-4ec4-4b35-ad39-b3d3da3e4972"
+	}
+}
