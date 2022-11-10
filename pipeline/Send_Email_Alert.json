@@ -41,7 +41,7 @@
 					"url": "https://prod-01.centralindia.logic.azure.com:443/workflows/f596889575a344b999ec3b3ff015d948/triggers/manual/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=rBqaoU-FlRiltjh8_Ud0t9izUEYdN_WEeWkHs6KtY_w",
 					"method": "POST",
 					"body": {
-						"value": "{\n    \"to\":\"Koushik.Rangarajan@elait.com\",\n    \"subject\":\"Regarding Pipeline Fail\",\n    \"email_body\":\"Hi, \",\n    \"pipelineName\":\"@{pipeline().Pipeline}\",\n    \"pipelineRunid\":\"@{pipeline().RunId}\",\n    \"dataFactoryname\":\"@{pipeline().DataFactory}\",\n    \"pipelineTriggerid\":\"@{pipeline().TriggerId}\"\n}",
+						"value": "{\n    \"to\":\"Koushik.Rangarajan@elait.com\",\n    \"subject\":\"Regarding Pipeline Fail\",\n    \"email_body\":\"Hi, \",\n    \"pipelineName\":\"@{pipeline().Pipeline}\",\n    \"pipelineRunid\":\"@{pipeline().RunId}\",\n    \"dataFactoryname\":\"@{pipeline().DataFactory}\",\n    \"pipelineTriggerid\":\"@{pipeline().TriggerId}\",\n    \"Error_msg\":\"@{activity('Copy data1').output.errors[0].Message}\"\n}",
 						"type": "Expression"
 					}
 				}
@@ -108,7 +108,7 @@
 			}
 		],
 		"annotations": [],
-		"lastPublishTime": "2022-11-09T07:08:44Z"
+		"lastPublishTime": "2022-11-10T05:47:20Z"
 	},
 	"type": "Microsoft.DataFactory/factories/pipelines"
 }
