@@ -1,0 +1,17 @@
+{
+	"name": "External_Table_Dedicated",
+	"properties": {
+		"content": {
+			"query": "CREATE EXTERNAL TABLE [dbo].[ExternalTable]\n(\n\t [id] INT,\n\t Name VARCHAR(20),\n\t Age int,\n\t Gender varchar(6)\n)\nWITH\n(\n\tLOCATION = 'helo.csv',\n\tDATA_SOURCE = [External_Data_Source_DedicatedSql],\n\tFILE_FORMAT = [ExternalFileFormat_DedicatedSql]\n)\n\nSELECT TOP (100) [id]\n,[Name]\n,[Age]\n,[Gender]\n FROM [dbo].[ExternalTable]",
+			"metadata": {
+				"language": "sql"
+			},
+			"currentConnection": {
+				"databaseName": "Dedicated_Sql_Pool",
+				"poolName": "Dedicated_Sql_Pool"
+			},
+			"resultLimit": 5000
+		},
+		"type": "SqlQuery"
+	}
+}

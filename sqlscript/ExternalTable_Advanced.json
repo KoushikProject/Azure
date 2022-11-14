@@ -1,0 +1,17 @@
+{
+	"name": "ExternalTable_Advanced",
+	"properties": {
+		"content": {
+			"query": "CREATE MASTER KEY ENCRYPTION BY PASSWORD = 'Welcome@123';\nGO\n\n\nCREATE DATABASE SCOPED CREDENTIAL MyCredentials\nWITH IDENTITY = 'SHARED ACCESS SIGNATURE',\nSECRET = 'sv=2021-06-08&ss=bfqt&srt=sco&sp=rwdlacupyx&se=2022-11-14T18:55:15Z&st=2022-11-14T10:55:15Z&spr=https&sig=6EHnnk7Gd8ef3%2Fb%2FT6QDtl0iaAztAi00sOkI9DC%2FrwY%3D';\n\n\nCREATE EXTERNAL DATA SOURCE [ExternalDataSource_WithCredential] WITH\n(\n\tTYPE = HADOOP,\n\tLOCATION = 'abfss://container2@koushikstorageacc.dfs.core.windows.net',\n    CREDENTIAL = MyCredentials\n)\n\nCREATE EXTERNAL FILE FORMAT [ExternalFileFormat_WithCredential] \nWITH (\n\tFORMAT_TYPE = DELIMITEDTEXT, \n\tFORMAT_OPTIONS (\n\t\tFIELD_TERMINATOR = N',', \n\t\tFIRST_ROW = 2, \n\t\tUSE_TYPE_DEFAULT = False\n\t)\n)\nGO\n\nCREATE EXTERNAL TABLE [dbo].[ExternalTable_WithCredential]\n( \n\t[id] [int]  NULL,\n\t[Name] [varchar](20)  NULL,\n\t[Age] [int]  NULL,\n\t[Gender] [varchar](6)  NULL\n)\nWITH ( DATA_SOURCE = [ExternalDataSource_WithCredential], \nLOCATION = N'informationUpdated.csv', \nFILE_FORMAT = [ExternalFileFormat_WithCredential], REJECT_TYPE = VALUE, REJECT_VALUE = 0 )\nGO\n\nselect * from ExternalTable_WithCredential\n",
+			"metadata": {
+				"language": "sql"
+			},
+			"currentConnection": {
+				"databaseName": "Dedicated_Sql_Pool",
+				"poolName": "Dedicated_Sql_Pool"
+			},
+			"resultLimit": 5000
+		},
+		"type": "SqlQuery"
+	}
+}

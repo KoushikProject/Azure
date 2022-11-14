@@ -1,0 +1,17 @@
+{
+	"name": "File_Format_Ded",
+	"properties": {
+		"content": {
+			"query": "CREATE EXTERNAL FILE FORMAT [ExternalFileFormat_DedicatedSql] WITH\n(\n\tFORMAT_TYPE = DELIMITEDTEXT,\n\tFORMAT_OPTIONS (\n\t\t\t FIELD_TERMINATOR = ',',\n\t\t\t FIRST_ROW=2,\n\t\t\t USE_TYPE_DEFAULT = FALSE\n\t\t\t)\n)\n",
+			"metadata": {
+				"language": "sql"
+			},
+			"currentConnection": {
+				"databaseName": "Dedicated_Sql_Pool",
+				"poolName": "Dedicated_Sql_Pool"
+			},
+			"resultLimit": 5000
+		},
+		"type": "SqlQuery"
+	}
+}

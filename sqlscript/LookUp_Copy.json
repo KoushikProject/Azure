@@ -1,0 +1,17 @@
+{
+	"name": "LookUp_Copy",
+	"properties": {
+		"content": {
+			"query": "CREATE TABLE [dbo].[Transfer]\n(\n    sourcefolder VARCHAR(30),\n    sourcefile VARCHAR(40),\n    targetschema VARCHAR(30),\n    targettable VARCHAR(40)\n)\nWITH\n(\n    DISTRIBUTION = HASH (sourcefolder),\n    CLUSTERED COLUMNSTORE INDEX\n)\nGO\n\ninsert into transfer values('first','dept.csv','dbo','information');\n\ninsert into transfer values('second','details.csv','dbo','department');\n\n\n\nselect * from Transfer;\n",
+			"metadata": {
+				"language": "sql"
+			},
+			"currentConnection": {
+				"databaseName": "Dedicated_Sql_Pool",
+				"poolName": "Dedicated_Sql_Pool"
+			},
+			"resultLimit": 5000
+		},
+		"type": "SqlQuery"
+	}
+}

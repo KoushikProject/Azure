@@ -1,0 +1,17 @@
+{
+	"name": "External_Table_Serverless",
+	"properties": {
+		"content": {
+			"query": "IF NOT EXISTS (SELECT * FROM sys.external_file_formats WHERE name = 'SynapseDelimitedTextFormat') \n\tCREATE EXTERNAL FILE FORMAT [SynapseDelimitedTextFormat] \n\tWITH ( FORMAT_TYPE = DELIMITEDTEXT ,\n\t       FORMAT_OPTIONS (\n\t\t\t FIELD_TERMINATOR = ',',\n\t\t\t FIRST_ROW=2,\n\t\t\t USE_TYPE_DEFAULT = FALSE\n\t\t\t))\nGO\n\nIF NOT EXISTS (SELECT * FROM sys.external_data_sources WHERE name = 'container2_koushikstorageacc_dfs_core_windows_net') \n\tCREATE EXTERNAL DATA SOURCE [container2_koushikstorageacc] \n\tWITH (\n\t\tLOCATION = 'https://koushikstorageacc.dfs.core.windows.net/container2', \n\t\t\n\t)\nGO\n\nCREATE EXTERNAL TABLE first_table (\n\t[id] nvarchar(4000),\n\t[Name] nvarchar(4000),\n\t[Age] nvarchar(4000),\n\t[Gender] nvarchar(4000)\n\t)\n\tWITH (\n\tLOCATION = 'helo.csv',\n\tDATA_SOURCE = [container2_koushikstorageacc],\n\tFILE_FORMAT = [SynapseDelimitedTextFormat]\n\t)\nGO\n\n\nSELECT TOP 100 * FROM dbo.first_table\nGO",
+			"metadata": {
+				"language": "sql"
+			},
+			"currentConnection": {
+				"databaseName": "Dedicated_Sql_Pool",
+				"poolName": "Dedicated_Sql_Pool"
+			},
+			"resultLimit": 5000
+		},
+		"type": "SqlQuery"
+	}
+}

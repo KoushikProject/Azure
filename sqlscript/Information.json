@@ -1,0 +1,17 @@
+{
+	"name": "Information",
+	"properties": {
+		"content": {
+			"query": "CREATE TABLE [dbo].[information]\n(\n    dept int,depname VARCHAR(30)\n)\nWITH\n(\n    DISTRIBUTION = HASH (dept),\n    CLUSTERED COLUMNSTORE INDEX\n)\nGO\n",
+			"metadata": {
+				"language": "sql"
+			},
+			"currentConnection": {
+				"databaseName": "Dedicated_Sql_Pool",
+				"poolName": "Dedicated_Sql_Pool"
+			},
+			"resultLimit": 5000
+		},
+		"type": "SqlQuery"
+	}
+}

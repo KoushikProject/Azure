@@ -1,0 +1,17 @@
+{
+	"name": "Data_Source_Ded",
+	"properties": {
+		"content": {
+			"query": "CREATE EXTERNAL DATA SOURCE [External_Data_Source_DedicatedSql] WITH\n(\n\tTYPE = HADOOP,\n\tLOCATION = 'abfss://container2@koushikstorageacc.dfs.core.windows.net'\n)\n",
+			"metadata": {
+				"language": "sql"
+			},
+			"currentConnection": {
+				"databaseName": "Dedicated_Sql_Pool",
+				"poolName": "Dedicated_Sql_Pool"
+			},
+			"resultLimit": 5000
+		},
+		"type": "SqlQuery"
+	}
+}

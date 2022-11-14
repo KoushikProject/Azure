@@ -1,0 +1,34 @@
+{
+	"name": "Dedicated_Data",
+	"properties": {
+		"annotations": [],
+		"type": "SqlPoolTable",
+		"schema": [
+			{
+				"name": "sourcefolder",
+				"type": "varchar"
+			},
+			{
+				"name": "sourcefile",
+				"type": "varchar"
+			},
+			{
+				"name": "targetschema",
+				"type": "varchar"
+			},
+			{
+				"name": "targettable",
+				"type": "varchar"
+			}
+		],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": "Transfer"
+		},
+		"sqlPool": {
+			"referenceName": "Dedicated_Sql_Pool",
+			"type": "SqlPoolReference"
+		}
+	},
+	"type": "Microsoft.Synapse/workspaces/datasets"
+}
