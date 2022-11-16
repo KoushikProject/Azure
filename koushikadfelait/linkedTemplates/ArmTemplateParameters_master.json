@@ -1,0 +1,30 @@
+{
+	"$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"value": "koushikadfelait"
+		},
+		"AzureBlobStorage1_connectionString": {
+			"value": ""
+		},
+		"AzureDataLakeStorage1_accountKey": {
+			"value": ""
+		},
+		"AzureSqlDatabase1_connectionString": {
+			"value": ""
+		},
+		"AzureDataLakeStorage1_properties_typeProperties_url": {
+			"value": "https://koushikstorageblobsonly.dfs.core.windows.net/"
+		},
+		"EventTrigger_properties_typeProperties_scope": {
+			"value": "/subscriptions/04754fec-8ceb-4c33-be61-0f8008921460/resourceGroups/KoushikAssignment4/providers/Microsoft.Storage/storageAccounts/koushikstorageblobsonly"
+		},
+		"containerUri": {
+			"value": ""
+		},
+		"containerSasToken": {
+			"value": ""
+		}
+	}
+}
