@@ -1,0 +1,9 @@
+{
+	"name": "koushikadfelait",
+	"location": "centralindia",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "2f0cbac0-9a61-4144-af02-5021b1cc5abb",
+		"tenantId": "b2ea6a73-b7a6-4daa-bc49-08d657b5bda4"
+	}
+}
