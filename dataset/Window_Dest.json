@@ -2,7 +2,7 @@
 	"name": "Window_Dest",
 	"properties": {
 		"linkedServiceName": {
-			"referenceName": "AzureBlobStorage1",
+			"referenceName": "AzureBlobStorageGen2",
 			"type": "LinkedServiceReference"
 		},
 		"annotations": [],

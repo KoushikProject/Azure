@@ -11,7 +11,6 @@
 			"location": {
 				"type": "AzureBlobFSLocation",
 				"fileName": "info.csv",
-				"folderPath": "EventTrigger",
 				"fileSystem": "container1"
 			},
 			"columnDelimiter": ",",

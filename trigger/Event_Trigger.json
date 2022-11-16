@@ -1,0 +1,24 @@
+{
+	"name": "Event_Trigger",
+	"properties": {
+		"annotations": [],
+		"runtimeState": "Started",
+		"pipelines": [
+			{
+				"pipelineReference": {
+					"referenceName": "Event_pipeline",
+					"type": "PipelineReference"
+				}
+			}
+		],
+		"type": "BlobEventsTrigger",
+		"typeProperties": {
+			"blobPathBeginsWith": "/container1/blobs/EventTrigger/",
+			"ignoreEmptyBlobs": true,
+			"scope": "/subscriptions/04754fec-8ceb-4c33-be61-0f8008921460/resourceGroups/KoushikAssignment4/providers/Microsoft.Storage/storageAccounts/koushikstorageblobsonly",
+			"events": [
+				"Microsoft.Storage.BlobCreated"
+			]
+		}
+	}
+}

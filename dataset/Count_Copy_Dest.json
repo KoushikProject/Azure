@@ -2,16 +2,15 @@
 	"name": "Count_Copy_Dest",
 	"properties": {
 		"linkedServiceName": {
-			"referenceName": "AzureDataLakeStorage1",
+			"referenceName": "AzureBlobStorageGen2",
 			"type": "LinkedServiceReference"
 		},
 		"annotations": [],
 		"type": "DelimitedText",
 		"typeProperties": {
 			"location": {
-				"type": "AzureBlobFSLocation",
-				"folderPath": "Count_Output",
-				"fileSystem": "container1"
+				"type": "AzureBlobStorageLocation",
+				"container": "container4-outputofcount"
 			},
 			"columnDelimiter": ",",
 			"escapeChar": "\\",

@@ -23,7 +23,7 @@
 						"childItems"
 					],
 					"storeSettings": {
-						"type": "AzureBlobFSReadSettings",
+						"type": "AzureBlobStorageReadSettings",
 						"recursive": true,
 						"enablePartitionDiscovery": false
 					},
@@ -77,7 +77,7 @@
 								"source": {
 									"type": "DelimitedTextSource",
 									"storeSettings": {
-										"type": "AzureBlobFSReadSettings",
+										"type": "AzureBlobStorageReadSettings",
 										"recursive": true,
 										"wildcardFileName": "*.*",
 										"enablePartitionDiscovery": false
@@ -89,7 +89,7 @@
 								"sink": {
 									"type": "DelimitedTextSink",
 									"storeSettings": {
-										"type": "AzureBlobFSWriteSettings"
+										"type": "AzureBlobStorageWriteSettings"
 									},
 									"formatSettings": {
 										"type": "DelimitedTextWriteSettings",
@@ -125,7 +125,7 @@
 			}
 		],
 		"annotations": [],
-		"lastPublishTime": "2022-11-16T06:49:34Z"
+		"lastPublishTime": "2022-11-16T10:07:52Z"
 	},
 	"type": "Microsoft.DataFactory/factories/pipelines"
 }

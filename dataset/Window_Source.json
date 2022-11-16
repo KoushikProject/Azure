@@ -2,7 +2,7 @@
 	"name": "Window_Source",
 	"properties": {
 		"linkedServiceName": {
-			"referenceName": "AzureBlobStorage1",
+			"referenceName": "AzureBlobStorageGen2",
 			"type": "LinkedServiceReference"
 		},
 		"annotations": [],

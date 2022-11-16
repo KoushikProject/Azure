@@ -23,15 +23,26 @@
 					"storeSettings": {
 						"type": "AzureBlobStorageReadSettings",
 						"recursive": true,
-						"modifiedDatetimeStart": "2022-11-16T09:07:00.542Z",
-						"modifiedDatetimeEnd": "2022-11-16T09:20:00.209Z",
+						"modifiedDatetimeStart": {
+							"value": "@addDays(startOfDay(utcNow()),-1)",
+							"type": "Expression"
+						},
+						"modifiedDatetimeEnd": {
+							"value": "@utcNow()",
+							"type": "Expression"
+						},
 						"enablePartitionDiscovery": false
 					}
 				}
 			}
 		],
+		"variables": {
+			"day": {
+				"type": "String"
+			}
+		},
 		"annotations": [],
-		"lastPublishTime": "2022-11-16T09:19:44Z"
+		"lastPublishTime": "2022-11-16T11:38:20Z"
 	},
 	"type": "Microsoft.DataFactory/factories/pipelines"
 }
