@@ -1,0 +1,37 @@
+{
+	"name": "stringify_dataflow",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "stringify_source",
+						"type": "DatasetReference"
+					},
+					"name": "source1"
+				}
+			],
+			"sinks": [],
+			"transformations": [
+				{
+					"name": "stringify1"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          {{\"name\":\"raja\"} as string,",
+				"          {\"skills\":[\".net\"} as string,",
+				"          {\"azure\"]} as string,",
+				"          {\"contact\":{\"mobile\":\"54343\"} as string,",
+				"          {\"landline\":\"3234567\"}}} as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false) ~> source1",
+				"source1 stringify(address = ERROR_FUNCTION('') ? string,",
+				"     format: 'json') ~> stringify1"
+			]
+		}
+	}
+}
