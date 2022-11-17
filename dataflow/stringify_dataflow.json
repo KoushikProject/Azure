@@ -6,31 +6,74 @@
 			"sources": [
 				{
 					"dataset": {
-						"referenceName": "stringify_source",
+						"referenceName": "stringify_jsonSource",
 						"type": "DatasetReference"
 					},
 					"name": "source1"
 				}
 			],
-			"sinks": [],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "stringify_output",
+						"type": "DatasetReference"
+					},
+					"name": "sink1"
+				}
+			],
 			"transformations": [
 				{
 					"name": "stringify1"
+				},
+				{
+					"name": "derivedColumn1"
+				},
+				{
+					"name": "flatten1"
 				}
 			],
 			"scriptLines": [
 				"source(output(",
-				"          {{\"name\":\"raja\"} as string,",
-				"          {\"skills\":[\".net\"} as string,",
-				"          {\"azure\"]} as string,",
-				"          {\"contact\":{\"mobile\":\"54343\"} as string,",
-				"          {\"landline\":\"3234567\"}}} as string",
+				"          contact as (landline as integer, mobile as integer),",
+				"          name as string,",
+				"          skills as string[]",
 				"     ),",
 				"     allowSchemaDrift: true,",
 				"     validateSchema: false,",
-				"     ignoreNoFilesFound: false) ~> source1",
-				"source1 stringify(address = ERROR_FUNCTION('') ? string,",
-				"     format: 'json') ~> stringify1"
+				"     ignoreNoFilesFound: false,",
+				"     documentForm: 'documentPerLine') ~> source1",
+				"source1 stringify(contact = contact ? string,",
+				"     format: 'json') ~> stringify1",
+				"stringify1 derive(contact = toString(contact)) ~> derivedColumn1",
+				"derivedColumn1 foldDown(unroll(skills),",
+				"     mapColumn(",
+				"          contact,",
+				"          name,",
+				"          skills",
+				"     ),",
+				"     skipDuplicateMapInputs: false,",
+				"     skipDuplicateMapOutputs: false) ~> flatten1",
+				"flatten1 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          id as string,",
+				"          name as string,",
+				"          age as string,",
+				"          marks as string,",
+				"          grade as string,",
+				"          Time_Now as string,",
+				"          filepath as string,",
+				"          PipeLineName as string,",
+				"          Nationality as string,",
+				"          col as string",
+				"     ),",
+				"     partitionFileNames:['OutputStringify.csv'],",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     partitionBy('hash', 1)) ~> sink1"
 			]
 		}
 	}
