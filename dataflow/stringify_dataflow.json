@@ -30,6 +30,9 @@
 				},
 				{
 					"name": "flatten1"
+				},
+				{
+					"name": "derivedColumn2"
 				}
 			],
 			"scriptLines": [
@@ -45,7 +48,7 @@
 				"source1 stringify(contact = contact ? string,",
 				"     format: 'json') ~> stringify1",
 				"stringify1 derive(contact = toString(contact)) ~> derivedColumn1",
-				"derivedColumn1 foldDown(unroll(skills),",
+				"derivedColumn2 foldDown(unroll(skills),",
 				"     mapColumn(",
 				"          contact,",
 				"          name,",
@@ -53,6 +56,7 @@
 				"     ),",
 				"     skipDuplicateMapInputs: false,",
 				"     skipDuplicateMapOutputs: false) ~> flatten1",
+				"derivedColumn1 derive(contact = replace(replace(replace(contact,'\\\\',''),'\\\\',''),'\"','')) ~> derivedColumn2",
 				"flatten1 sink(allowSchemaDrift: true,",
 				"     validateSchema: false,",
 				"     input(",
