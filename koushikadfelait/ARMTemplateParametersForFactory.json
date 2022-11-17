@@ -8,16 +8,28 @@
 		"AzureBlobStorage1_connectionString": {
 			"value": ""
 		},
+		"AzureBlobStorageGen2_connectionString": {
+			"value": ""
+		},
 		"AzureDataLakeStorage1_accountKey": {
 			"value": ""
 		},
 		"AzureSqlDatabase1_connectionString": {
 			"value": ""
 		},
+		"datalakeAssignment5_accountKey": {
+			"value": ""
+		},
 		"AzureDataLakeStorage1_properties_typeProperties_url": {
 			"value": "https://koushikstorageblobsonly.dfs.core.windows.net/"
 		},
+		"datalakeAssignment5_properties_typeProperties_url": {
+			"value": "https://koushikstoragassign5.dfs.core.windows.net/"
+		},
 		"EventTrigger_properties_typeProperties_scope": {
+			"value": "/subscriptions/04754fec-8ceb-4c33-be61-0f8008921460/resourceGroups/KoushikAssignment4/providers/Microsoft.Storage/storageAccounts/koushikstorageblobsonly"
+		},
+		"Event_Trigger_properties_typeProperties_scope": {
 			"value": "/subscriptions/04754fec-8ceb-4c33-be61-0f8008921460/resourceGroups/KoushikAssignment4/providers/Microsoft.Storage/storageAccounts/koushikstorageblobsonly"
 		}
 	}
