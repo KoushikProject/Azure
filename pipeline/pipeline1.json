@@ -1,17 +1,312 @@
 {
-	"name": "pipeline1",
-	"properties": {
-		"activities": [
-			{
-				"name": "Wait1",
-				"type": "Wait",
-				"dependsOn": [],
-				"userProperties": [],
-				"typeProperties": {
-					"waitTimeInSeconds": 20
-				}
-			}
-		],
-		"annotations": []
-	}
+    "name": "Load_SourceToSynapse",
+    "properties": {
+        "activities": [
+            {
+                "name": "LK_GetList",
+                "type": "Lookup",
+                "dependsOn": [],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "source": {
+                        "type": "SqlDWSource",
+                        "sqlReaderQuery": "SELECT DISTINCT LoadControlID FROM lcf.LoadControl\nWHERE  LoadControlID  IN (254,567)\nORDER BY LoadControlID ",
+                        "queryTimeout": "02:00:00",
+                        "partitionOption": "None"
+                    },
+                    "dataset": {
+                        "referenceName": "AzureSynapseAnalyticsTable1",
+                        "type": "DatasetReference",
+                        "parameters": {
+                            "SchemaName": "lcf",
+                            "TableName": "LoadControl"
+                        }
+                    },
+                    "firstRowOnly": false
+                }
+            },
+            {
+                "name": "ForEachTable",
+                "type": "ForEach",
+                "dependsOn": [
+                    {
+                        "activity": "LK_GetList",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "userProperties": [],
+                "typeProperties": {
+                    "items": {
+                        "value": "@activity('LK_GetList').output.value",
+                        "type": "Expression"
+                    },
+                    "batchCount": 2,
+                    "activities": [
+                        {
+                            "name": "LK_GetDetails",
+                            "type": "Lookup",
+                            "dependsOn": [],
+                            "policy": {
+                                "timeout": "0.12:00:00",
+                                "retry": 0,
+                                "retryIntervalInSeconds": 30,
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "source": {
+                                    "type": "SqlDWSource",
+                                    "sqlReaderQuery": {
+                                        "value": "@concat('SELECT * FROM lcf.LoadControl WHERE LoadControlID =',item().LoadControlID)",
+                                        "type": "Expression"
+                                    },
+                                    "queryTimeout": "02:00:00",
+                                    "partitionOption": "None"
+                                },
+                                "dataset": {
+                                    "referenceName": "AzureSynapseAnalyticsTable1",
+                                    "type": "DatasetReference",
+                                    "parameters": {
+                                        "SchemaName": "lcf",
+                                        "TableName": "LoadControl"
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "name": "LK_UpdateFailureLog",
+                            "type": "Lookup",
+                            "dependsOn": [
+                                {
+                                    "activity": "CPY_StagingToPL",
+                                    "dependencyConditions": [
+                                        "Failed"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "timeout": "0.12:00:00",
+                                "retry": 0,
+                                "retryIntervalInSeconds": 30,
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "source": {
+                                    "type": "SqlPoolSource",
+                                    "sqlReaderQuery": {
+                                        "value": "@concat('UPDATE lcf.AuditLog SET PipelineStatus = ''FAILURE'', PipelineEndTime = GETDATE() WHERE TargetTable =''',activity('LK_GetDetails').output.firstRow.TargetTable,'''; SELECT ''COMPLETED'' ;')",
+                                        "type": "Expression"
+                                    },
+                                    "queryTimeout": "02:00:00"
+                                },
+                                "dataset": {
+                                    "referenceName": "DS_SqlPool",
+                                    "type": "DatasetReference",
+                                    "parameters": {
+                                        "SchemaName": "lcf",
+                                        "TableName": "AuditLog"
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "name": "LK_UpdateSuccessLog",
+                            "type": "Lookup",
+                            "dependsOn": [
+                                {
+                                    "activity": "CPY_StagingToPL",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "timeout": "0.12:00:00",
+                                "retry": 0,
+                                "retryIntervalInSeconds": 30,
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "source": {
+                                    "type": "SqlDWSource",
+                                    "sqlReaderQuery": {
+                                        "value": "@concat('UPDATE lcf.AuditLog SET PipelineStatus = ''SUCCESS'', PipelineEndTime = GETDATE() WHERE TargetTable =''',activity('LK_GetDetails').output.firstRow.TargetTable,'''; SELECT ''COMPLETED'' ;')",
+                                        "type": "Expression"
+                                    },
+                                    "queryTimeout": "02:00:00",
+                                    "partitionOption": "None"
+                                },
+                                "dataset": {
+                                    "referenceName": "AzureSynapseAnalyticsTable1",
+                                    "type": "DatasetReference",
+                                    "parameters": {
+                                        "SchemaName": "lcf",
+                                        "TableName": "AuditLog"
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "name": "CPY_StagingToPL",
+                            "type": "Copy",
+                            "dependsOn": [
+                                {
+                                    "activity": "Copy data1",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "timeout": "0.12:00:00",
+                                "retry": 0,
+                                "retryIntervalInSeconds": 30,
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "source": {
+                                    "type": "SqlServerSource",
+                                    "queryTimeout": "02:00:00",
+                                    "partitionOption": "None"
+                                },
+                                "sink": {
+                                    "type": "SqlDWSink",
+                                    "allowCopyCommand": true
+                                },
+                                "enableStaging": true,
+                                "stagingSettings": {
+                                    "linkedServiceName": {
+                                        "referenceName": "AzureBlobStorage1",
+                                        "type": "LinkedServiceReference"
+                                    },
+                                    "path": "fdwsynapse/Staging"
+                                }
+                            },
+                            "inputs": [
+                                {
+                                    "referenceName": "DS_SqlServer",
+                                    "type": "DatasetReference",
+                                    "parameters": {
+                                        "SchemaName": {
+                                            "value": "@activity('LK_GetDetails').output.firstRow.TargetSchema",
+                                            "type": "Expression"
+                                        },
+                                        "TableName": {
+                                            "value": "@activity('LK_GetDetails').output.firstRow.SourceTable",
+                                            "type": "Expression"
+                                        }
+                                    }
+                                }
+                            ],
+                            "outputs": [
+                                {
+                                    "referenceName": "AzureSynapseAnalyticsTable1",
+                                    "type": "DatasetReference",
+                                    "parameters": {
+                                        "SchemaName": {
+                                            "value": "@activity('LK_GetDetails').output.firstRow.TargetSchema",
+                                            "type": "Expression"
+                                        },
+                                        "TableName": {
+                                            "value": "@activity('LK_GetDetails').output.firstRow.TargetTable",
+                                            "type": "Expression"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Copy data1",
+                            "type": "Copy",
+                            "dependsOn": [
+                                {
+                                    "activity": "LK_GetDetails",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "timeout": "0.12:00:00",
+                                "retry": 0,
+                                "retryIntervalInSeconds": 30,
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "source": {
+                                    "type": "SqlServerSource",
+                                    "queryTimeout": "02:00:00",
+                                    "partitionOption": "None"
+                                },
+                                "sink": {
+                                    "type": "SqlDWSink",
+                                    "allowCopyCommand": true,
+                                    "disableMetricsCollection": false
+                                },
+                                "enableStaging": true,
+                                "stagingSettings": {
+                                    "linkedServiceName": {
+                                        "referenceName": "AzureBlobStorage1",
+                                        "type": "LinkedServiceReference"
+                                    },
+                                    "path": "fdwsynapse/Staging"
+                                }
+                            },
+                            "inputs": [
+                                {
+                                    "referenceName": "DS_SqlServer",
+                                    "type": "DatasetReference",
+                                    "parameters": {
+                                        "SchemaName": {
+                                            "value": "@activity('LK_GetDetails').output.firstRow.SourceSchema",
+                                            "type": "Expression"
+                                        },
+                                        "TableName": {
+                                            "value": "@activity('LK_GetDetails').output.firstRow.SourceTable",
+                                            "type": "Expression"
+                                        }
+                                    }
+                                }
+                            ],
+                            "outputs": [
+                                {
+                                    "referenceName": "AzureSynapseAnalyticsTable1",
+                                    "type": "DatasetReference",
+                                    "parameters": {
+                                        "SchemaName": {
+                                            "value": "@activity('LK_GetDetails').output.firstRow.SourceSchema",
+                                            "type": "Expression"
+                                        },
+                                        "TableName": {
+                                            "value": "@activity('LK_GetDetails').output.firstRow.SourceTable",
+                                            "type": "Expression"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+        ],
+        "annotations": []
+    }
 }
