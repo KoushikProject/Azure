@@ -1,0 +1,167 @@
+{
+	"name": "DFSscdtype2",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "inputfile",
+						"type": "DatasetReference"
+					},
+					"name": "scdinputtype2"
+				},
+				{
+					"dataset": {
+						"referenceName": "AzureSqlTable2",
+						"type": "DatasetReference"
+					},
+					"name": "scdsqlinput"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "AzureSqlTable2",
+						"type": "DatasetReference"
+					},
+					"name": "scdoutput"
+				},
+				{
+					"dataset": {
+						"referenceName": "AzureSqlTable3",
+						"type": "DatasetReference"
+					},
+					"name": "SinkTable"
+				}
+			],
+			"transformations": [
+				{
+					"name": "AddIsActive"
+				},
+				{
+					"name": "Rename"
+				},
+				{
+					"name": "lookup1"
+				},
+				{
+					"name": "ExistEmployee"
+				},
+				{
+					"name": "OnlyExistSELECT"
+				},
+				{
+					"name": "UpdateIsActive"
+				},
+				{
+					"name": "AlterSqlRow"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          id as integer,",
+				"          name as string,",
+				"          country as string,",
+				"          department as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false) ~> scdinputtype2",
+				"source(output(",
+				"          sur_key as integer,",
+				"          id as integer,",
+				"          name as string,",
+				"          country as string,",
+				"          department as string,",
+				"          isActive as integer",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     format: 'table') ~> scdsqlinput",
+				"scdinputtype2 derive(isActive = 1) ~> AddIsActive",
+				"scdsqlinput select(mapColumn(",
+				"          sur_key_sql = sur_key,",
+				"          id_sql = id,",
+				"          name_sql = name,",
+				"          country_sql = country,",
+				"          department_sql = department,",
+				"          isActive_sql = isActive",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> Rename",
+				"scdinputtype2, Rename lookup(id == id_sql,",
+				"     multiple: true,",
+				"     broadcast: 'auto')~> lookup1",
+				"lookup1 filter(!isNull(id_sql)) ~> ExistEmployee",
+				"ExistEmployee select(mapColumn(",
+				"          sur_key_sql,",
+				"          id_sql,",
+				"          name_sql,",
+				"          country_sql,",
+				"          department_sql,",
+				"          isActive_sql",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> OnlyExistSELECT",
+				"OnlyExistSELECT derive(isActive_sql = 0) ~> UpdateIsActive",
+				"UpdateIsActive alterRow(updateIf(true())) ~> AlterSqlRow",
+				"AddIsActive sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          sur_key as integer,",
+				"          id as integer,",
+				"          name as string,",
+				"          country as string,",
+				"          department as string,",
+				"          isActive as integer",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     saveOrder: 2,",
+				"     errorHandlingOption: 'stopOnFirstError',",
+				"     mapColumn(",
+				"          id,",
+				"          name,",
+				"          country,",
+				"          department,",
+				"          isActive",
+				"     )) ~> scdoutput",
+				"AlterSqlRow sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          sur_key as integer,",
+				"          id as integer,",
+				"          name as string,",
+				"          country as string,",
+				"          department as string,",
+				"          isActive as integer",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:false,",
+				"     updateable:true,",
+				"     upsertable:false,",
+				"     keys:['sur_key'],",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     saveOrder: 1,",
+				"     errorHandlingOption: 'stopOnFirstError',",
+				"     mapColumn(",
+				"          sur_key = sur_key_sql,",
+				"          id = id_sql,",
+				"          name = name_sql,",
+				"          country = country_sql,",
+				"          department = country_sql,",
+				"          isActive = isActive_sql",
+				"     )) ~> SinkTable"
+			]
+		}
+	}
+}
