@@ -1,0 +1,187 @@
+{
+	"name": "DFSscdtype3",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "DelimitedText1",
+						"type": "DatasetReference"
+					},
+					"name": "scdinput3"
+				},
+				{
+					"dataset": {
+						"referenceName": "AzureSqlTable4",
+						"type": "DatasetReference"
+					},
+					"name": "source2"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "AzureSqlTable5",
+						"type": "DatasetReference"
+					},
+					"name": "sink1"
+				},
+				{
+					"dataset": {
+						"referenceName": "AzureSqlTable6",
+						"type": "DatasetReference"
+					},
+					"name": "sink2"
+				}
+			],
+			"transformations": [
+				{
+					"name": "Rename"
+				},
+				{
+					"name": "AddCurrentOriginal"
+				},
+				{
+					"name": "RemoveCountry"
+				},
+				{
+					"name": "lookup"
+				},
+				{
+					"name": "select"
+				},
+				{
+					"name": "filter"
+				},
+				{
+					"name": "derivedColumn1"
+				},
+				{
+					"name": "alterRow"
+				},
+				{
+					"name": "exists1"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          id as integer,",
+				"          name as string,",
+				"          country as string,",
+				"          department as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false) ~> scdinput3",
+				"source(output(",
+				"          sur_key as integer,",
+				"          id as integer,",
+				"          emp_name as string,",
+				"          original_country as string,",
+				"          current_country as string,",
+				"          dept as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     format: 'table') ~> source2",
+				"source2 select(mapColumn(",
+				"          sur_key_sql = sur_key,",
+				"          id_sql = id,",
+				"          emp_name_sql = emp_name,",
+				"          original_country_sql = original_country,",
+				"          current_country_sql = current_country,",
+				"          dept_sql = dept",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> Rename",
+				"exists1 derive(OriginalCountry = '',",
+				"          CurrentCountry = country) ~> AddCurrentOriginal",
+				"AddCurrentOriginal select(mapColumn(",
+				"          id,",
+				"          name,",
+				"          department,",
+				"          OriginalCountry,",
+				"          CurrentCountry",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> RemoveCountry",
+				"scdinput3, Rename lookup(id == id_sql,",
+				"     multiple: true,",
+				"     broadcast: 'auto')~> lookup",
+				"alterRow select(mapColumn(",
+				"          sur_key_sql,",
+				"          id_sql,",
+				"          emp_name_sql,",
+				"          original_country_sql,",
+				"          current_country_sql,",
+				"          dept_sql",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> select",
+				"lookup filter(!isNull(id_sql)) ~> filter",
+				"filter derive(original_country_sql = current_country_sql,",
+				"          current_country_sql = country) ~> derivedColumn1",
+				"derivedColumn1 alterRow(updateIf(true())) ~> alterRow",
+				"scdinput3, Rename exists(id == id_sql,",
+				"     negate:true,",
+				"     broadcast: 'auto')~> exists1",
+				"RemoveCountry sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          sur_key as integer,",
+				"          id as integer,",
+				"          emp_name as string,",
+				"          original_country as string,",
+				"          current_country as string,",
+				"          dept as string",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     saveOrder: 2,",
+				"     errorHandlingOption: 'stopOnFirstError',",
+				"     mapColumn(",
+				"          id,",
+				"          emp_name = name,",
+				"          original_country = OriginalCountry,",
+				"          current_country = CurrentCountry,",
+				"          dept = department",
+				"     )) ~> sink1",
+				"select sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          sur_key as integer,",
+				"          id as integer,",
+				"          emp_name as string,",
+				"          original_country as string,",
+				"          current_country as string,",
+				"          dept as string",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:false,",
+				"     updateable:true,",
+				"     upsertable:false,",
+				"     keys:['sur_key'],",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     saveOrder: 1,",
+				"     errorHandlingOption: 'stopOnFirstError',",
+				"     mapColumn(",
+				"          sur_key = sur_key_sql,",
+				"          id = id_sql,",
+				"          emp_name = emp_name_sql,",
+				"          original_country = original_country_sql,",
+				"          current_country = current_country_sql,",
+				"          dept = dept_sql",
+				"     )) ~> sink2"
+			]
+		}
+	}
+}

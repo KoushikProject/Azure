@@ -10,8 +10,8 @@
 		"typeProperties": {
 			"location": {
 				"type": "AzureBlobFSLocation",
-				"fileName": "info.txt",
-				"fileSystem": "con1"
+				"fileName": "scd_type1.csv",
+				"fileSystem": "data"
 			},
 			"columnDelimiter": ",",
 			"escapeChar": "\\",
@@ -20,17 +20,22 @@
 		},
 		"schema": [
 			{
+				"name": "id",
+				"type": "String"
+			},
+			{
 				"name": "name",
 				"type": "String"
 			},
 			{
-				"name": "dob",
+				"name": "country",
 				"type": "String"
 			},
 			{
-				"name": "dept",
+				"name": "department",
 				"type": "String"
 			}
 		]
-	}
+	},
+	"type": "Microsoft.Synapse/workspaces/datasets"
 }
