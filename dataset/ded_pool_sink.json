@@ -1,0 +1,28 @@
+{
+	"name": "ded_pool_sink",
+	"properties": {
+		"parameters": {
+			"desttable": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "SqlPoolTable",
+		"schema": [],
+		"typeProperties": {
+			"schema": {
+				"value": "dbo",
+				"type": "Expression"
+			},
+			"table": {
+				"value": "@dataset().desttable",
+				"type": "Expression"
+			}
+		},
+		"sqlPool": {
+			"referenceName": "ded_pool",
+			"type": "SqlPoolReference"
+		}
+	},
+	"type": "Microsoft.Synapse/workspaces/datasets"
+}

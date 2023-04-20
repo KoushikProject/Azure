@@ -1,0 +1,17 @@
+{
+	"name": "storedprocedurepipeline",
+	"properties": {
+		"content": {
+			"query": "Create Proc [dbo].[InsertAuditLogPipeline] @workspacename nvarchar(20),@pipelinename nvarchar(20),@pipelineid nvarchar(20),@pipelinetriggertype nvarchar(20),@Pipelinestarttime datetime,@Pipelineendtime DATETIME,@Status nvarchar(20)\nAS\nBEGIN\n\nInsert into [dbo].[audit_log_table](\n    workspacename,\n    pipelinename,\n    pipelineid,\n    pipelinetriggertype,\n    pipelinestarttime,\n    pipelineendtime,\n    pipelinestatus\n) values (\n    @workspacename ,\n    @pipelinename,\n    @pipelineid,\n    @pipelinetriggertype,\n    @Pipelinestarttime ,\n    @Pipelineendtime,\n    @Status\n)\n\nEND",
+			"metadata": {
+				"language": "sql"
+			},
+			"currentConnection": {
+				"databaseName": "ded_pool",
+				"poolName": "ded_pool"
+			},
+			"resultLimit": 5000
+		},
+		"type": "SqlQuery"
+	}
+}

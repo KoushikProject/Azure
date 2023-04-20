@@ -1,0 +1,17 @@
+{
+	"name": "storedproceduretable",
+	"properties": {
+		"content": {
+			"query": "Create Proc [dbo].[InsertAuditLog] @SourceDb nvarchar(20),@Sourcetable nvarchar(20),@DestDb nvarchar(20),@Desttable nvarchar(20),@Rowcount int,@Pipelinestarttime datetime,@Pipelineendtime DATETIME,@Status nvarchar(20)\nAS\nBEGIN\n\nInsert into [dbo].[audit_log_table](\n    Sourcedb,\n    Sourcetable,\n    DestDb,\n    Desttable,\n    rowcounts,\n    pipelinestarttime,\n    pipelineendtime,\n    pipelinestatus\n) values (\n    @SourceDb ,\n    @Sourcetable,\n    @DestDb,\n    @Desttable,\n    @Rowcount,\n    @Pipelinestarttime ,\n    @Pipelineendtime,\n    @Status\n)\n\nEND",
+			"metadata": {
+				"language": "sql"
+			},
+			"currentConnection": {
+				"databaseName": "ded_pool",
+				"poolName": "ded_pool"
+			},
+			"resultLimit": 5000
+		},
+		"type": "SqlQuery"
+	}
+}

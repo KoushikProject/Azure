@@ -1,0 +1,17 @@
+{
+	"name": "Table_Definition",
+	"properties": {
+		"content": {
+			"query": "create table metatable(keycolumn VARCHAR(20),sourcedb varchar(20),sourcetable varchar(20),destdb varchar(20),desttable varchar(20))\n\ninsert into metatable values('cusid','dbo','customer','ded_pool','customer')\ninsert into metatable values('prodid','dbo','product','ded_pool','product')\ninsert into metatable values('vendid','dbo','vendor','ded_pool','vendor')\ninsert into metatable values('tranid','dbo','transactions','ded_pool','transactions')\n\ncreate table audit_log_table(sur_id int IDENTITY,sourcedb varchar(20),sourcetable varchar(20),destdb varchar(20),desttable varchar(20),rowcounts int,pipelinestarttime DATETIME,pipelineendtime DATETIME,pipelinestatus VARCHAR(20))\n\nselect * from audit_log_table\nselect * from metatable\n\ncreate table customer(cusid int,cusname VARCHAR(20))\ncreate table product(prodid int,prodname VARCHAR(20))\ncreate table vendor(vendid int,vendname VARCHAR(20))\ncreate table transactions(tranid int,amount DECIMAL(10,2))\n\ndrop TABLE empl\n\nselect * from product\nselect * from customer\n\ntruncate table product\n\ntruncate table customer\n\ntruncate table vendor\n\ntruncate table \n",
+			"metadata": {
+				"language": "sql"
+			},
+			"currentConnection": {
+				"databaseName": "ded_pool",
+				"poolName": "ded_pool"
+			},
+			"resultLimit": 5000
+		},
+		"type": "SqlQuery"
+	}
+}

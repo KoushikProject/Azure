@@ -1,0 +1,60 @@
+{
+	"name": "auditlogsource",
+	"properties": {
+		"annotations": [],
+		"type": "SqlPoolTable",
+		"schema": [
+			{
+				"name": "sur_id",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "sourcedb",
+				"type": "varchar"
+			},
+			{
+				"name": "sourcetable",
+				"type": "varchar"
+			},
+			{
+				"name": "destdb",
+				"type": "varchar"
+			},
+			{
+				"name": "desttable",
+				"type": "varchar"
+			},
+			{
+				"name": "rowcounts",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "pipelinestarttime",
+				"type": "datetime",
+				"precision": 23,
+				"scale": 3
+			},
+			{
+				"name": "pipelineendtime",
+				"type": "datetime",
+				"precision": 23,
+				"scale": 3
+			},
+			{
+				"name": "pipelinestatus",
+				"type": "varchar"
+			}
+		],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": "audit_log_table"
+		},
+		"sqlPool": {
+			"referenceName": "ded_pool",
+			"type": "SqlPoolReference"
+		}
+	},
+	"type": "Microsoft.Synapse/workspaces/datasets"
+}

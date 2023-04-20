@@ -1,0 +1,34 @@
+{
+	"name": "lookup_meta",
+	"properties": {
+		"annotations": [],
+		"type": "SqlPoolTable",
+		"schema": [
+			{
+				"name": "sourcedb",
+				"type": "varchar"
+			},
+			{
+				"name": "sourcetable",
+				"type": "varchar"
+			},
+			{
+				"name": "destdb",
+				"type": "varchar"
+			},
+			{
+				"name": "desttable",
+				"type": "varchar"
+			}
+		],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": "metatable"
+		},
+		"sqlPool": {
+			"referenceName": "ded_pool",
+			"type": "SqlPoolReference"
+		}
+	},
+	"type": "Microsoft.Synapse/workspaces/datasets"
+}
