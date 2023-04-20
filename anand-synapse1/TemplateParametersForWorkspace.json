@@ -1,0 +1,27 @@
+{
+	"$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"workspaceName": {
+			"value": "anand-synapse1"
+		},
+		"MySql1_connectionString": {
+			"value": ""
+		},
+		"anand-synapse1-WorkspaceDefaultSqlServer_connectionString": {
+			"value": "Integrated Security=False;Encrypt=True;Connection Timeout=30;Data Source=tcp:anand-synapse1.sql.azuresynapse.net,1433;Initial Catalog=@{linkedService().DBName}"
+		},
+		"ded_poollinkedserviceSP_connectionString": {
+			"value": ""
+		},
+		"linkedService1_accountKey": {
+			"value": ""
+		},
+		"anand-synapse1-WorkspaceDefaultStorage_properties_typeProperties_url": {
+			"value": "https://ananddls.dfs.core.windows.net"
+		},
+		"linkedService1_properties_typeProperties_url": {
+			"value": "https://ananddls.dfs.core.windows.net/"
+		}
+	}
+}
