@@ -1,0 +1,17 @@
+{
+	"name": "updatebatchdatetime",
+	"properties": {
+		"content": {
+			"query": "ALTER PROC [dbo].[updateBatchdateColumn] @sourcedb NVARCHAR(20),@sourcetable NVARCHAR(20),@batchstartdate DATETIME,@batchenddate DATETIME\nAS\nBEGIN\n\nUPDATE metatable set batchstarttime = @batchstartdate , batchendtime = @batchenddate where sourcedb = @sourcedb and sourcetable = @sourcetable \n\nEND",
+			"metadata": {
+				"language": "sql"
+			},
+			"currentConnection": {
+				"databaseName": "ded_pool",
+				"poolName": "ded_pool"
+			},
+			"resultLimit": 5000
+		},
+		"type": "SqlQuery"
+	}
+}

@@ -1,9 +1,9 @@
 {
-	"name": "metadatadriven_pipelline",
+	"name": "orchestrationpipeline",
 	"properties": {
 		"activities": [
 			{
-				"name": "Lookup1",
+				"name": "LK_metatable",
 				"type": "Lookup",
 				"dependsOn": [],
 				"policy": {
@@ -31,7 +31,7 @@
 				"type": "ForEach",
 				"dependsOn": [
 					{
-						"activity": "Lookup1",
+						"activity": "LK_metatable",
 						"dependencyConditions": [
 							"Succeeded"
 						]
@@ -40,14 +40,13 @@
 				"userProperties": [],
 				"typeProperties": {
 					"items": {
-						"value": "@activity('Lookup1').output.value",
+						"value": "@activity('LK_metatable').output.value",
 						"type": "Expression"
 					},
-					"isSequential": false,
-					"batchCount": 2,
+					"batchCount": 3,
 					"activities": [
 						{
-							"name": "Copy data1",
+							"name": "CopyDataToStaging",
 							"type": "Copy",
 							"dependsOn": [],
 							"policy": {
@@ -123,7 +122,7 @@
 							"type": "SqlServerStoredProcedure",
 							"dependsOn": [
 								{
-									"activity": "Set variable1",
+									"activity": "CopyDataToStaging",
 									"dependencyConditions": [
 										"Succeeded"
 									]
@@ -163,14 +162,14 @@
 									},
 									"Pipelinestarttime": {
 										"value": {
-											"value": "@activity('Copy data1').output.executionDetails[0].start",
+											"value": "@pipeline().TriggerTime",
 											"type": "Expression"
 										},
 										"type": "DateTime"
 									},
 									"Rowcount": {
 										"value": {
-											"value": "@activity('Copy data1').output.rowsCopied",
+											"value": "@activity('CopyDataToStaging').output.rowsCopied",
 											"type": "Expression"
 										},
 										"type": "Int32"
@@ -191,7 +190,7 @@
 									},
 									"Status": {
 										"value": {
-											"value": "@activity('Copy data1').output.executionDetails[0].status",
+											"value": "succeeded",
 											"type": "Expression"
 										},
 										"type": "String"
@@ -204,13 +203,13 @@
 							}
 						},
 						{
-							"name": "fail_log_table",
+							"name": "updateBatchdatetime",
 							"type": "SqlServerStoredProcedure",
 							"dependsOn": [
 								{
-									"activity": "Copy data1",
+									"activity": "CopyDataToStaging",
 									"dependencyConditions": [
-										"Failed"
+										"Succeeded"
 									]
 								}
 							],
@@ -223,60 +222,32 @@
 							},
 							"userProperties": [],
 							"typeProperties": {
-								"storedProcedureName": "[dbo].[InsertAuditLog]",
+								"storedProcedureName": "[dbo].[updateBatchdateColumn]",
 								"storedProcedureParameters": {
-									"DestDb": {
-										"value": {
-											"value": "@item().destdb",
-											"type": "Expression"
-										},
-										"type": "String"
-									},
-									"Desttable": {
-										"value": {
-											"value": "@item().desttable",
-											"type": "Expression"
-										},
-										"type": "String"
-									},
-									"Pipelineendtime": {
+									"batchenddate": {
 										"value": {
 											"value": "@utcNow()",
 											"type": "Expression"
 										},
 										"type": "DateTime"
 									},
-									"Pipelinestarttime": {
+									"batchstartdate": {
 										"value": {
-											"value": "@activity('Copy data1').output.executionDetails[0].start",
+											"value": "@pipeline().TriggerTime",
 											"type": "Expression"
 										},
 										"type": "DateTime"
 									},
-									"Rowcount": {
-										"value": {
-											"value": "@activity('Copy data1').output.rowsCopied",
-											"type": "Expression"
-										},
-										"type": "Int32"
-									},
-									"SourceDb": {
+									"sourcedb": {
 										"value": {
 											"value": "@item().sourcedb",
 											"type": "Expression"
 										},
 										"type": "String"
 									},
-									"Sourcetable": {
+									"sourcetable": {
 										"value": {
 											"value": "@item().sourcetable",
-											"type": "Expression"
-										},
-										"type": "String"
-									},
-									"Status": {
-										"value": {
-											"value": "@activity('Copy data1').output.executionDetails[0].status",
 											"type": "Expression"
 										},
 										"type": "String"
@@ -286,32 +257,6 @@
 							"linkedServiceName": {
 								"referenceName": "ded_poollinkedserviceSP",
 								"type": "LinkedServiceReference"
-							}
-						},
-						{
-							"name": "Set variable1",
-							"type": "SetVariable",
-							"dependsOn": [
-								{
-									"activity": "Copy data1",
-									"dependencyConditions": [
-										"Succeeded"
-									]
-								}
-							],
-							"userProperties": [],
-							"typeProperties": {
-								"variableName": "pipelineReturnValue",
-								"value": [
-									{
-										"key": "copy_output",
-										"value": {
-											"type": "Expression",
-											"content": "@activity('Copy data1').output.executionDetails[0].start"
-										}
-									}
-								],
-								"setSystemVariable": true
 							}
 						}
 					]
@@ -319,7 +264,7 @@
 			}
 		],
 		"annotations": [],
-		"lastPublishTime": "2023-04-20T11:38:57Z"
+		"lastPublishTime": "2023-04-21T09:51:20Z"
 	},
 	"type": "Microsoft.Synapse/workspaces/pipelines"
 }

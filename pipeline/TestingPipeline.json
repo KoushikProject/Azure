@@ -1,0 +1,118 @@
+{
+	"name": "TestingPipeline",
+	"properties": {
+		"activities": [
+			{
+				"name": "LK_GetMeta",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlPoolSource",
+						"queryTimeout": "02:00:00"
+					},
+					"dataset": {
+						"referenceName": "lookup_meta",
+						"type": "DatasetReference"
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "ForEach1",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "LK_GetMeta",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('LK_GetMeta').output.value",
+						"type": "Expression"
+					},
+					"batchCount": 4,
+					"activities": [
+						{
+							"name": "checkdataOnprem",
+							"type": "Lookup",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "MySqlSource",
+									"query": {
+										"value": "@concat('select count(*)\n AS Count from ',concat(item().sourcedb,'.',item().sourcetable),\n' where inserteddate > \"',item().batchendtime,'\" and ', \n'inserteddate <= \"',utcNow(),'\"')",
+										"type": "Expression"
+									}
+								},
+								"dataset": {
+									"referenceName": "MySqlSource",
+									"type": "DatasetReference"
+								},
+								"firstRowOnly": true
+							}
+						},
+						{
+							"name": "updateAvailableInMetaData",
+							"type": "Lookup",
+							"dependsOn": [
+								{
+									"activity": "checkdataOnprem",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "SqlPoolSource",
+									"sqlReaderQuery": {
+										"value": "@concat('DECLARE @Availability nvarchar(100)\n    IF (',activity('checkdataOnprem').output.firstRow.Count,' = 0)\n        BEGIN\n            SET @Availability = ''No''\n        END\n    ELSE\n        BEGIN\n            SET @Availability = ''Yes''\n        END\n\n    UPDATE [dbo].[metatable]\n    SET changed = @Availability \n    WHERE sourcetable = ''',item().sourcetable,'''; SELECT 1;')",
+										"type": "Expression"
+									},
+									"queryTimeout": "02:00:00"
+								},
+								"dataset": {
+									"referenceName": "lookup_meta",
+									"type": "DatasetReference"
+								},
+								"firstRowOnly": false
+							}
+						}
+					]
+				}
+			}
+		],
+		"annotations": [],
+		"lastPublishTime": "2023-04-21T12:00:58Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}

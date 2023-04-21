@@ -1,0 +1,17 @@
+{
+	"name": "ReturncountSP",
+	"properties": {
+		"content": {
+			"query": "CREATE PROC checkCount @sourcedb NVARCHAR(10), @sourcetable nvarchar(10) ,@startdate DATETIME,@enddate DATETIME\nAS\nBEGIN\n\nDeclare @availablecount int;\n\nset @availablecount = (select count(*) from CONCAT(@sourcedb,'.',@sourcetable) where inserteddate >= @startdate and inserteddate <= @enddate)\n\nselect @availablecount as countcol\n\nEND",
+			"metadata": {
+				"language": "sql"
+			},
+			"currentConnection": {
+				"databaseName": "ded_pool",
+				"poolName": "ded_pool"
+			},
+			"resultLimit": 5000
+		},
+		"type": "SqlQuery"
+	}
+}

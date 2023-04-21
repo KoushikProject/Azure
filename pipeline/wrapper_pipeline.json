@@ -67,7 +67,7 @@
 						},
 						"Pipelinestarttime": {
 							"value": {
-								"value": "@variables('starttime')",
+								"value": "@activity('Execute Pipeline1').output.pipelineReturnValue",
 								"type": "Expression"
 							},
 							"type": "DateTime"
@@ -145,7 +145,7 @@
 						},
 						"Pipelinestarttime": {
 							"value": {
-								"value": "@variables('starttime')",
+								"value": "@activity('Execute Pipeline1').output.pipelineReturnValue",
 								"type": "Expression"
 							},
 							"type": "DateTime"
@@ -198,7 +198,7 @@
 			}
 		},
 		"annotations": [],
-		"lastPublishTime": "2023-04-20T06:51:14Z"
+		"lastPublishTime": "2023-04-20T11:39:12Z"
 	},
 	"type": "Microsoft.Synapse/workspaces/pipelines"
 }

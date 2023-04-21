@@ -1,0 +1,217 @@
+{
+	"name": "sqlwatcherroot",
+	"properties": {
+		"activities": [
+			{
+				"name": "LK_GetMeta",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlPoolSource",
+						"queryTimeout": "02:00:00"
+					},
+					"dataset": {
+						"referenceName": "lookup_meta",
+						"type": "DatasetReference"
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "Until1",
+				"type": "Until",
+				"dependsOn": [
+					{
+						"activity": "ForEach1",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@equals(bool(activity('CheckAllChangedtoAvailable').output.firstRow.changed),true)",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "CheckAllChangedtoAvailable",
+							"type": "Lookup",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "SqlPoolSource",
+									"sqlReaderStoredProcedureName": "[dbo].[CheckMetatableAvailabeSP]",
+									"queryTimeout": "02:00:00"
+								},
+								"dataset": {
+									"referenceName": "lookup_meta",
+									"type": "DatasetReference"
+								},
+								"firstRowOnly": true
+							}
+						}
+					],
+					"timeout": "0.12:00:00"
+				}
+			},
+			{
+				"name": "Set variable1",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Until1",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "pipelineReturnValue",
+					"value": [
+						{
+							"key": "msg",
+							"value": {
+								"type": "Expression",
+								"content": "@activity('CheckAllChangedtoAvailable').output"
+							}
+						}
+					],
+					"setSystemVariable": true
+				}
+			},
+			{
+				"name": "Set variable2",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Until1",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "pipelineReturnValue",
+					"value": [
+						{
+							"key": "msg",
+							"value": {
+								"type": "Expression",
+								"content": "@concat('Data Ingestion not available','!')"
+							}
+						}
+					],
+					"setSystemVariable": true
+				}
+			},
+			{
+				"name": "ForEach1",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "LK_GetMeta",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('LK_GetMeta').output.value",
+						"type": "Expression"
+					},
+					"batchCount": 4,
+					"activities": [
+						{
+							"name": "updateAvailableInMetaData",
+							"type": "Lookup",
+							"dependsOn": [
+								{
+									"activity": "checkdataOnprem",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "SqlPoolSource",
+									"sqlReaderQuery": {
+										"value": "@concat('DECLARE @Availability nvarchar(100)\n    IF ',activity('checkdataOnprem').output.firstRow.Count, ' IS NULL \n    SET @Availability = ''No''\n    ELSE\n    SET @Availability = ''Yes''\n    UPDATE dbo.loadcontrol SET Activated = @Availability WHERE TableName =''',activity('checkdataOnprem').output.firstRow, '''; SELECT 1')",
+										"type": "Expression"
+									},
+									"queryTimeout": "02:00:00"
+								},
+								"dataset": {
+									"referenceName": "lookup_meta",
+									"type": "DatasetReference"
+								},
+								"firstRowOnly": false
+							}
+						},
+						{
+							"name": "checkdataOnprem",
+							"type": "Lookup",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "MySqlSource",
+									"query": {
+										"value": "@concat('select count(*) from ',concat(item().sourcedb,'.',item().sourcetable),\n' where inserteddate > \"',item().batchenddate,'\" and ', \n'inserteddate <= \"',utcNow(),'\"')",
+										"type": "Expression"
+									}
+								},
+								"dataset": {
+									"referenceName": "MySqlSource",
+									"type": "DatasetReference"
+								},
+								"firstRowOnly": true
+							}
+						}
+					]
+				}
+			}
+		],
+		"annotations": [],
+		"lastPublishTime": "2023-04-21T11:47:46Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}

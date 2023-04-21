@@ -1,0 +1,17 @@
+{
+	"name": "updateavailableforcount",
+	"properties": {
+		"content": {
+			"query": "SET ANSI_NULLS ON\nGO\nSET QUOTED_IDENTIFIER ON\nGO\n\nCREATE PROC [dbo].[CheckMetatableAvailabeSP] AS\nBEGIN\n\n DECLARE @totalCount int,\n         @availableCount int;\n\n BEGIN TRY\n    SET @totalCount = (SELECT COUNT(*) FROM [dbo].[metatable])\n\n    SET @availableCount = (SELECT COUNT(*) FROM [dbo].[metatable] WHERE changed = 'available')\n\n    IF @availableCount = @totalCount\n        BEGIN\n        SELECT 1 AS Status;\n        END\n    ELSE\n        BEGIN\n            SELECT 0 AS Status;\n        END\n\n        --Other Way\n\n    -- IF EXIST(Select * from [dbo].[metatable] Where changed <> 'available' )\n    --     BEGIN\n    --         Select 0 as Status\n    --     END\n\n    -- ELSE\n    --     BEGIN\n    --         Select 1 as Status\n    --     END\n\n END TRY\n\n BEGIN CATCH\n\n END CATCH\n\nEND\nGO",
+			"metadata": {
+				"language": "sql"
+			},
+			"currentConnection": {
+				"databaseName": "ded_pool",
+				"poolName": "ded_pool"
+			},
+			"resultLimit": 5000
+		},
+		"type": "SqlQuery"
+	}
+}

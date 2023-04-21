@@ -1,0 +1,47 @@
+{
+	"name": "lookupmeta2",
+	"properties": {
+		"annotations": [],
+		"type": "SqlPoolTable",
+		"schema": [
+			{
+				"name": "keycolumn",
+				"type": "varchar"
+			},
+			{
+				"name": "sourcedb",
+				"type": "varchar"
+			},
+			{
+				"name": "sourcetable",
+				"type": "varchar"
+			},
+			{
+				"name": "destdb",
+				"type": "varchar"
+			},
+			{
+				"name": "desttable",
+				"type": "varchar"
+			},
+			{
+				"name": "dependenttable",
+				"type": "varchar"
+			},
+			{
+				"name": "dependencylevel",
+				"type": "int",
+				"precision": 10
+			}
+		],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": "metatable1"
+		},
+		"sqlPool": {
+			"referenceName": "ded_pool",
+			"type": "SqlPoolReference"
+		}
+	},
+	"type": "Microsoft.Synapse/workspaces/datasets"
+}

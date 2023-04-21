@@ -1,0 +1,57 @@
+{
+	"name": "wrapper_sqlwatcher",
+	"properties": {
+		"activities": [
+			{
+				"name": "Sqlwatcher",
+				"type": "ExecutePipeline",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "sqlwatcherroot",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			},
+			{
+				"name": "If Condition1",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "Sqlwatcher",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@equals(activity('Sqlwatcher').output.pipelineReturnValue,true)",
+						"type": "Expression"
+					},
+					"ifTrueActivities": [
+						{
+							"name": "OrchestrationPipeline",
+							"type": "ExecutePipeline",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "orchestrationpipeline",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true
+							}
+						}
+					]
+				}
+			}
+		],
+		"annotations": [],
+		"lastPublishTime": "2023-04-21T11:48:14Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}
