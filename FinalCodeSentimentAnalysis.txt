@@ -1,0 +1,198 @@
+import logging
+import azure.functions as func
+from datetime import datetime, timedelta
+from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
+from textblob import TextBlob
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+import pandas as pd
+import re
+import string
+from nltk.tokenize import RegexpTokenizer
+import nltk
+from nltk.corpus import stopwords
+nltk.download('omw-1.4')
+nltk.download('wordnet')
+nltk.download('stopwords')
+
+#TextBlobAlgorithm
+
+def textblob_algorithm(df):
+    def getSubjectivity(text):
+        return TextBlob(text).sentiment.subjectivity
+            
+            #Create a function to get the polarity
+    def getPolarity(text):
+        return TextBlob(text).sentiment.polarity
+            
+            #Create two new columns ‘Subjectivity’ & ‘Polarity’
+    df['TextBlob_Subjectivity'] = df['cleaned_text'].apply(getSubjectivity)
+    df['TextBlob_Polarity'] = df['cleaned_text'].apply(getPolarity)
+    def getAnalysis(score):
+        if score >-1 and score <-0.5:
+            return 'Negative'
+        elif score >= -0.5 and score <= 0.5:
+            return 'Neutral'
+        else:
+            return 'Positive'
+    df['TextBlob_Analysis'] = df['TextBlob_Polarity'].apply(getAnalysis )
+    return df
+
+###################################################################################################
+#VaderAlgorithm
+
+def vader_algorithm(df):
+    analyzer = SentimentIntensityAnalyzer()
+    df['scores']=df['cleaned_text'].apply(lambda x: analyzer.polarity_scores(str(x)))
+    df['compound']=df['scores'].apply(lambda score_dict:score_dict['compound'])
+    df['pos']=df['scores'].apply(lambda pos_dict:pos_dict['pos'])
+    df['neg']=df['scores'].apply(lambda neg_dict:neg_dict['neg'])
+    def vader_analysis(compound):
+        if compound > 0:
+            return 'Positive'
+        elif compound < 0 :
+            return 'Negative'
+        else:
+            return 'Neutral'
+    df['Emotion']= df['compound'].apply(lambda x : vader_analysis(x))
+    return df
+
+###################################################################################################
+#PreProcessingFunction
+
+english_punctuations = string.punctuation
+en_stopwords = set(stopwords.words("english"))
+punctuations_list = english_punctuations
+tokenizer = RegexpTokenizer(r'\w+')
+st = nltk.PorterStemmer()
+lm = nltk.WordNetLemmatizer()
+
+def getcleanedtext(text):
+    text=text.lower()
+    text = re.sub('@[\w]+','',text)
+    def cleaning_stopwords(text):
+        return " ".join([word for word in str(text).split() if word not in en_stopwords])
+    stop_word_removal = cleaning_stopwords(text)
+    
+    def cleaning_punctuations(text):
+        translator = str.maketrans('', '', punctuations_list)
+        return text.translate(translator)
+    punctuation_removal = cleaning_punctuations(stop_word_removal)
+    
+    def cleaning_repeating_char(text):
+        return re.sub(r'(.)1+', r'1', text)
+    repeating_char_removal = cleaning_repeating_char(punctuation_removal)
+     
+    def cleaning_URLs(data):
+        return re.sub('((www.[^s]+)|(https?://[^s]+))',' ',data)
+    clean_url = cleaning_URLs(repeating_char_removal)
+    
+    def cleaning_numbers(data):
+        return re.sub('[0-9]+', '', data)
+    clean_numbers = cleaning_numbers(clean_url)
+    
+    def remove_single_char(data):
+        return re.sub(r'\s+[a-zA-Z]\s+', '', data)
+    remove_single = remove_single_char(clean_numbers)
+    
+    def stemming_on_text(data):
+        text = [st.stem(word) for word in data]
+        return data
+    stemming = stemming_on_text(remove_single)
+    
+    def lemmatizer_on_text(data):
+        text = [lm.lemmatize(word) for word in data]
+        return data
+    lemmatize = lemmatizer_on_text(stemming)
+    
+    
+    tokens=tokenizer.tokenize(lemmatize)
+    without_single_chr = [word for word in tokens if len(word) > 2]
+    clean_text=' '.join(without_single_chr)
+    return clean_text
+
+###################################################################################################
+#EntryPointToTheProgram
+
+def main(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a request.')
+    file_name = ""
+    account_name = req.params.get('account_name')
+    container_name = req.params.get('container_name')
+    blob_name = req.params.get('blob_name')
+    column_name = req.params.get('column_name')
+    algorithm_name = req.params.get('algorithm_name')
+    try:
+        if not account_name or container_name or blob_name or column_name or algorithm_name:
+            try:
+                req_body = req.get_json()
+            except ValueError:
+                pass
+            else:
+                account_name = req_body.get('account_name')
+                container_name = req_body.get('container_name')
+                blob_name = req_body.get('blob_name')
+                column_name = req_body.get('column_name')
+                algorithm_name = req_body.get('algorithm_name')
+        if not blob_name==None:
+            file_name = blob_name.split('.')[0]
+        account_key = 'fkiwBHQeuY5opMfvcySYeHaDC7CJqD5VxQH5RvYv1ilTeqpHe/8yYrxuf/Twogl1SPh8Lazt3bPa+AStt6Hy4Q=='
+        
+        #create a client to interact with blob storage
+        connect_str = 'DefaultEndpointsProtocol=https;AccountName=' + account_name + ';AccountKey=' + account_key + ';EndpointSuffix=core.windows.net'
+        blob_service_client = BlobServiceClient.from_connection_string(connect_str)
+
+        #use the client to connect to the container
+        container_client = blob_service_client.get_container_client(container_name)
+
+        blob_list = []
+        for blob_i in container_client.list_blobs():
+            blob_list.append(blob_i.name)
+
+            #for i in blob_list:
+            #    print(i)
+                
+        df_list = []
+            #generate a shared access signiture for files and load them into Python
+        for blob_i in blob_list:
+            #generate a shared access signature for each blob file
+            sas_i = generate_blob_sas(account_name = account_name,
+                                            container_name = container_name,
+                                            blob_name = blob_name,
+                                            account_key=account_key,
+                                            permission=BlobSasPermissions(read=True),
+                                            expiry=datetime.utcnow() + timedelta(hours=1))
+                
+        sas_url = 'https://' + account_name+'.blob.core.windows.net/' + container_name + '/' +blob_name + '?' + sas_i
+                
+        df = pd.read_csv(sas_url)
+        X = df[column_name]
+        x_clean=[getcleanedtext(i) for i in X]
+        df['cleaned_text'] = x_clean
+        df = textblob_algorithm(df) if(algorithm_name=="textblob") else vader_algorithm(df)  
+
+        output = df.to_csv (index_label="idx", encoding = "utf-8")
+        blob_client = blob_service_client.get_blob_client(container=container_name, blob="output/"+file_name+"_"+algorithm_name+"Output"+".csv") 
+        blob_client.upload_blob(output,overwrite=True)
+        return func.HttpResponse(
+            output,
+            status_code=200
+        )
+    except Exception as ex:
+        return func.HttpResponse(
+                "Some error at beginning itself"+logging.error(ex),
+                status_code=200
+            )
+    finally:
+        return func.HttpResponse(
+                "Came to finally block atlast",
+                status_code=200
+            )
+
+
+Requirement.txt
+------------------     
+azure.functions
+TextBlob
+pandas
+vaderSentiment
+azure.storage.blob
