@@ -1,0 +1,886 @@
+using Azure.Identity;
+using Azure.Storage.Blobs;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Azure.WebJobs;
+using Microsoft.Azure.WebJobs.Extensions.DurableTask;
+using Microsoft.Azure.WebJobs.Extensions.Http;
+using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Net.Http;
+using System.Text;
+using System.Threading.Tasks;
+namespace StructureValidationDurableFunction
+{
+    public class InputDataFromPipeline
+    {
+        public string FileName;
+        public string PipeLineName;
+        public string PipelineID;
+        public string ExecutionTime;
+        public string EntireFilePathWithFilename;
+        public string MetaData;
+        public string StorageAccountName;
+        public string ContainerName;
+        public string ValidationKeyColumns;
+    }
+    public class ValidationColumnInfo
+    {
+        public string ColumnName;
+        public string IsNullable;
+        public string DataType;
+        public string MaximumLength;
+        public string NumericPrecision;
+        public string NumericScale;
+    }
+    public static class StructureValidation
+    {
+        [FunctionName("StructureValidation")]
+        public static async Task<string> RunOrchestrator(
+            [OrchestrationTrigger] IDurableOrchestrationContext context)
+        {
+            string outputs = "";
+            string fileName = context.GetInput<InputDataFromPipeline>()?.FileName;
+            string pipeLineName = context.GetInput<InputDataFromPipeline>()?.PipeLineName;
+            string pipelineID = context.GetInput<InputDataFromPipeline>()?.PipelineID;
+            string executionTime = context.GetInput<InputDataFromPipeline>()?.ExecutionTime;
+            string entireFilePathWithFilename = context.GetInput<InputDataFromPipeline>()?.EntireFilePathWithFilename;
+            string metaData = context.GetInput<InputDataFromPipeline>()?.MetaData;
+            string storageAccountName = context.GetInput<InputDataFromPipeline>()?.StorageAccountName;
+            string containerName = context.GetInput<InputDataFromPipeline>()?.ContainerName;
+            string validationKeyColumns = context.GetInput<InputDataFromPipeline>()?.ValidationKeyColumns;
+
+            outputs = await context.CallActivityAsync<string>("StructureValidation_Activity", new InputDataFromPipeline { FileName = fileName, PipeLineName = pipeLineName, PipelineID = pipelineID, ExecutionTime = executionTime, EntireFilePathWithFilename = entireFilePathWithFilename, MetaData = metaData, StorageAccountName = storageAccountName, ContainerName = containerName, ValidationKeyColumns = validationKeyColumns });
+            return outputs;
+        }
+        public static string internalServerError = "";
+        [FunctionName("StructureValidation_Activity")]
+        public static async Task<string> FileStructureValidationAsync([ActivityTrigger] InputDataFromPipeline Inputs, ILogger log)
+        {
+
+            try
+            {
+                //Reading the parameter passed from Synapse pipeline to this method. 
+
+                string fileName = "", pipeLineName = "", pipelineID = "", executionTime = "";
+                string entireFilePathWithFilename = "", metaData = "";
+                string storageAccountName = "", containerName = "", validationKeyColumns = "";
+                char quoteCharacter = 'þ';
+
+                fileName = Inputs.FileName;
+                pipeLineName = Inputs.PipeLineName;
+                pipelineID = Inputs.PipelineID;
+                executionTime = Inputs.ExecutionTime;
+                entireFilePathWithFilename = Inputs.EntireFilePathWithFilename;
+                metaData = Inputs.MetaData;
+                storageAccountName = Inputs.StorageAccountName;
+                containerName = Inputs.ContainerName;
+                validationKeyColumns = Inputs.ValidationKeyColumns;
+
+                List<List<string>> records = new List<List<string>>();
+
+                //Creating BlobClient to connect to storage account and read the data of the
+                //files which will be validated later.
+
+                Azure.Core.TokenCredential credential = new DefaultAzureCredential();
+                string blobUri = "https://" + storageAccountName + ".blob.core.windows.net";
+                var blobServiceClient = new BlobServiceClient(new Uri(blobUri), credential);
+                BlobContainerClient containerClient = blobServiceClient.GetBlobContainerClient(containerName);
+                BlobClient blobClient = containerClient.GetBlobClient(entireFilePathWithFilename);
+
+
+
+                //Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+                //using (var streamReader = new StreamReader((response.Value.Content), Encoding.GetEncoding(1252)))
+
+
+                //Reading the file.
+                var response = await blobClient.DownloadAsync();
+                using (var streamReader = new StreamReader((response.Value.Content), Encoding.UTF8))
+                {
+                    //variable to ensure that only 100k records are read.
+                    int i = 0;
+                    while (!streamReader.EndOfStream)
+                    {
+                        //To ensure that we have read 100k records.
+                        if (i == 100000)
+                        {
+                            break;
+                        }
+                        else
+                        {
+                            i++;
+                            var line = await streamReader.ReadLineAsync();
+
+                            List<string> singleRecord = new List<string>();
+                            int startPosition = 0;
+                            var isInQuotes = false;
+                            for (int currentPosition = 0; currentPosition < line.Length; currentPosition++)
+                            {
+                                if (line[currentPosition] == quoteCharacter)
+                                {
+                                    isInQuotes = !isInQuotes;
+                                }
+                                else if (line[currentPosition] == ',' && !isInQuotes)
+                                {
+                                    singleRecord.Add(line.Substring(startPosition, (currentPosition - startPosition)));
+                                    startPosition = currentPosition + 1;
+                                }
+
+                                //if (line[currentPosition] == ',' && line[currentPosition + 1] != ' ')
+                                //{
+                                //    singleRecord.Add(line.Substring(startPosition, (currentPosition - startPosition)));
+                                //    startPosition = currentPosition + 1;
+                                //}
+                            }
+
+                            string lastColumnRecord = line.Substring(startPosition);
+                            if (lastColumnRecord.Equals(","))
+                            {
+                                singleRecord.Add("");
+                            }
+                            else
+                            {
+                                singleRecord.Add(lastColumnRecord);
+                            }
+                            records.Add(singleRecord);
+                        }
+                    }
+                }
+
+
+
+                List<ValidationColumnInfo> columnValidationInfo = new List<ValidationColumnInfo>();
+
+                //Splitting the Metadata based on '|' character.
+                var rowMetaData = metaData.Split('|');
+
+                //Splitting the ValidationKeyColumns based on ',' character.
+                var KeyColumns = validationKeyColumns.Split(',');
+
+                var missingColumn = "";
+                var additionalColumn = "";
+                var tablecolumns = new List<string>();
+                var filecolumns = new List<string>();
+                List<string> colnames = new List<string>();
+                List<int> ordposition = new List<int>();
+
+                //Adding the column names of the table in order to find the missing and additional columns in the file.
+                foreach (var rm in rowMetaData)
+                {
+                    tablecolumns.Add(rm.Substring(0, rm.IndexOf(',')));
+                }
+
+                //Splitting the Metadata of column based on ',' character and
+                //Storing the properties of each meta data as a List of class object
+                for (int fileDataRowTraverse = 0; fileDataRowTraverse < records[0].Count; fileDataRowTraverse++)
+                {
+                    String data = records[0][fileDataRowTraverse];
+
+                    //Removing the quote character from the column names.
+                    if (data[0] == quoteCharacter)
+                    {
+                        data = data.Substring(1);
+                    }
+                    if (data[data.Length - 1] == quoteCharacter)
+                    {
+                        data = data.Remove((data.Length - 1));
+                    }
+
+                    //Storing the metadata based on column names in the file.
+                    for (int metaDataRowTraverse = 0; metaDataRowTraverse < rowMetaData.Length; metaDataRowTraverse++)
+                    {
+                        if (data == rowMetaData[metaDataRowTraverse].Substring(0, rowMetaData[metaDataRowTraverse].IndexOf(',')))
+                        {
+                            var eachColumnForRow = rowMetaData[metaDataRowTraverse].Split(',');
+                            ValidationColumnInfo eachRowColumnInfo = new ValidationColumnInfo();
+
+                            eachRowColumnInfo.ColumnName = eachColumnForRow[0];
+                            eachRowColumnInfo.IsNullable = eachColumnForRow[1];
+                            eachRowColumnInfo.DataType = eachColumnForRow[2];
+                            eachRowColumnInfo.MaximumLength = eachColumnForRow[3];
+                            eachRowColumnInfo.NumericPrecision = eachColumnForRow[4];
+                            eachRowColumnInfo.NumericScale = eachColumnForRow[5];
+
+                            columnValidationInfo.Add(eachRowColumnInfo);
+
+                            tablecolumns.Remove(data);
+
+                            //Finding the positions of the validation columns in order to populate the correct values in the error message.
+                            for (int stind = 0; stind < KeyColumns.Length; stind++)
+                            {
+                                if (KeyColumns[stind] == data)
+                                {
+                                    colnames.Add(records[0][fileDataRowTraverse]);
+                                    ordposition.Add(fileDataRowTraverse);
+                                }
+                            }
+                            break;
+                        }
+                        else if (metaDataRowTraverse == rowMetaData.Length - 1)
+                        {
+                            filecolumns.Add(data);
+                        }
+
+                    }
+                }
+
+                //Storing missing and additional column names.
+                missingColumn = string.Join(',', tablecolumns);
+                additionalColumn = string.Join(',', filecolumns);
+
+                //Calculating the table and file column count.
+                var metaDataColumnCount = metaData.Split('|').Length;
+                var fileHeaderColumnCount = records[0].Count;
+
+
+
+                //Structure validation initial Error Description which will be logged.
+                int countcolumnRecord = 0;
+                List<string> errorMessageForRecords = new List<string>();
+                var errMsgInSingleLine = "";
+                var strValErrMsgInSingleLine = "Error Encountered during file validation of the file " + fileName + Environment.NewLine;
+                strValErrMsgInSingleLine += "Error Description: " + Environment.NewLine;
+                strValErrMsgInSingleLine += "Execution Time - " + executionTime + Environment.NewLine + "Error Message - " + Environment.NewLine;
+
+                if (metaDataColumnCount == fileHeaderColumnCount)
+                {
+                    countcolumnRecord = metaDataColumnCount;
+
+                    //Traversing each rows and column of the file data and validating it
+                    //based on all the boundary conditions and requirements.
+                    if (records.Count > 1)
+                    {
+                        int totalNumberOfAsyncMethodCall = (records.Count % 100) == 0 ? (records.Count / 100) : (records.Count / 100 + 1);
+                        List<Task<string>> outasycalls = new List<Task<string>>();
+
+                        for (int loopMethod = 0; loopMethod < totalNumberOfAsyncMethodCall; loopMethod++)
+                        {
+
+                            outasycalls.Add(MainFSV((loopMethod * 100 + 1), (records.Count <= ((loopMethod * 100) + 100)) ? (records.Count - 1) : ((loopMethod * 100) + 100), records, columnValidationInfo, metaDataColumnCount, countcolumnRecord, fileHeaderColumnCount, colnames, ordposition, quoteCharacter));
+
+                        }
+
+                        await Task.WhenAll(outasycalls);
+
+                        List<string> output = new List<string>();
+
+                        foreach (var eachDVErr in outasycalls)
+                        {
+                            output.Add(await eachDVErr);
+                        }
+
+                        errMsgInSingleLine = string.Join(' ', output.ToArray()).Trim();
+
+
+                        if (errMsgInSingleLine != "")
+                        {
+                            strValErrMsgInSingleLine += errMsgInSingleLine;
+                            return strValErrMsgInSingleLine;
+                        }
+                        else
+                        {
+                            errMsgInSingleLine = "No Error has been encountered while File Structure Validation.Please review the file name.";
+                            strValErrMsgInSingleLine += errMsgInSingleLine;
+                            return strValErrMsgInSingleLine;
+                        }
+                    }
+                    else
+                    {
+                        errMsgInSingleLine = "No Error has been encountered while File Structure Validation as there is no data found in the specified file OR Please review the file name.";
+                        strValErrMsgInSingleLine += errMsgInSingleLine;
+                        return strValErrMsgInSingleLine;
+                    }
+
+                }
+                else if (metaDataColumnCount > fileHeaderColumnCount)
+                {
+                    errMsgInSingleLine = string.Format("The column count from the Table is " + "'{0}'" + " is not matching with File Header column count" + "'{1}'" + ". The Missing columns are \n{2}." + "{3}", metaDataColumnCount, fileHeaderColumnCount, missingColumn, Environment.NewLine);
+                    strValErrMsgInSingleLine += errMsgInSingleLine;
+                    return strValErrMsgInSingleLine;
+                }
+                else
+                {
+                    errMsgInSingleLine = string.Format("The column count from the Table is " + "'{0}'" + " is not matching with File Header column count" + "'{1}'" + ". The Additional columns are \n{2}." + "{3}", metaDataColumnCount, fileHeaderColumnCount, additionalColumn, Environment.NewLine);
+                    strValErrMsgInSingleLine += errMsgInSingleLine;
+                    return strValErrMsgInSingleLine;
+                }
+
+
+
+            }
+            catch (Exception ex)
+            {
+                //Error will be logged in case of any exception from the program raised while validation. 
+                internalServerError = "Internal ServerError Encountered while validating the file. Error Description : " + ex.Message;
+                return internalServerError;
+            }
+        }
+
+        public static async Task<string> MainFSV(int startIndex, int finalIndex, List<List<string>> records, List<ValidationColumnInfo> columnValidationInfo, int metaDataColumnCount, int countcolumnRecord, int fileHeaderColumnCount, List<string> colnames, List<int> ordposition, char quoteCharacter)
+        {
+
+            string errMsgInSingleLine = "";
+            List<string> errorMessageForRecords = new List<string>();
+
+            //Traversing each rows and column of the file data and validating it.
+            for (int rowTraverse = startIndex; rowTraverse <= finalIndex; rowTraverse++)
+            {
+
+                if (records[rowTraverse].Count == metaDataColumnCount)
+                {
+                    List<string> errsk = new List<string>();
+
+                    for (int start = 0; start < colnames.Count; start++)
+                    {
+                        if (records[rowTraverse][ordposition[start]] == "")
+                        {
+                            errsk.Add(colnames[start] + " : " + "Null");
+                        }
+                        else
+                        {
+                            errsk.Add(colnames[start] + " : '" + records[rowTraverse][ordposition[start]] + "'");
+                        }
+
+                    }
+                    var errlt = string.Join(", ", errsk);
+
+                    for (int columnTraverse = 0; columnTraverse < countcolumnRecord; columnTraverse++)
+                    {
+                        var dataTypeChk = columnValidationInfo[columnTraverse].DataType;
+                        var dataValue = records[rowTraverse][columnTraverse];
+                        var doubleQuoteIssue = "";
+
+                        if (dataTypeChk == "nvarchar" || dataTypeChk == "varchar" || dataTypeChk == "char" || dataTypeChk == "nchar" || dataTypeChk == "text")
+                        {
+                            if (dataValue.Length < 2)
+                            {
+                                doubleQuoteIssue = string.Format("Record Row Number : " + "'{0}', " + "{1}, " + "Column Name : " + "'{2}'," + " Column Value : " + "'{3}'," + " Error Description : Double quotes mising." + "{4}", rowTraverse, errlt, records[0][columnTraverse], dataValue, Environment.NewLine);
+                                errMsgInSingleLine += doubleQuoteIssue;
+                            }
+                            else
+                            {
+                                var firstIndexValue = dataValue[0];
+                                var lastIndexValue = dataValue[dataValue.Length - 1];
+                                if (firstIndexValue != quoteCharacter || lastIndexValue != quoteCharacter)
+                                {
+                                    doubleQuoteIssue = string.Format("Record Row Number : " + "'{0}', " + "{1}, " + "Column Name : " + "'{2}'," + " Column Value : " + "'{3}'," + " Error Description : Double quotes issues." + "{4}", rowTraverse, errlt, records[0][columnTraverse], dataValue, Environment.NewLine);
+                                    errMsgInSingleLine += doubleQuoteIssue;
+                                }
+                                else
+                                {
+                                    dataValue = dataValue.Substring(1);
+                                    dataValue = dataValue.Remove((dataValue.Length - 1));
+
+                                }
+
+                            }
+
+                        }
+                        if (doubleQuoteIssue == "")
+                        {
+                            if (!(columnValidationInfo[columnTraverse].IsNullable.ToUpper() == "YES" && dataValue == ""))
+                            {
+                                var isNullable = "";
+                                if (dataValue == "")
+                                {
+                                    isNullable = "Nullable Error. This column does not allow Null values.";
+                                    var actualErrMsg = string.Format("Record Row Number : " + "'{0}', " + "{1}, " + "Column Name : " + "'{2}'," + " Column Value : " + "'{3}'," + " Error Description : " + "'{4}'" + "{5}", rowTraverse, errlt, records[0][columnTraverse], dataValue, isNullable, Environment.NewLine);
+                                    errMsgInSingleLine += actualErrMsg;
+
+                                }
+                                else
+                                {
+                                    var errorofRecord = "";
+                                    var dataType = DataType(dataValue, columnValidationInfo[columnTraverse].DataType);
+                                    if (dataType == "")
+                                    {
+                                        if (columnValidationInfo[columnTraverse].DataType == "nvarchar" || columnValidationInfo[columnTraverse].DataType == "varchar" || columnValidationInfo[columnTraverse].DataType == "varbinary" || columnValidationInfo[columnTraverse].DataType == "uniqueidentifier" || columnValidationInfo[columnTraverse].DataType == "char" || columnValidationInfo[columnTraverse].DataType == "nchar" || columnValidationInfo[columnTraverse].DataType == "binary" || columnValidationInfo[columnTraverse].DataType == "text")
+                                        {
+                                            var maxiMumLength = MaximumLength(dataValue, columnValidationInfo[columnTraverse].MaximumLength);
+                                            errorofRecord = isNullable + dataType + maxiMumLength;
+                                        }
+                                        else
+                                        {
+                                            var numericPrecisionScale = NumericPrecisionAndScale(dataValue, columnValidationInfo[columnTraverse].NumericPrecision, columnValidationInfo[columnTraverse].NumericScale);
+                                            errorofRecord = isNullable + dataType + numericPrecisionScale;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        errorofRecord = isNullable + dataType;
+                                    }
+                                    if (errorofRecord != "")
+                                    {
+                                        errMsgInSingleLine += string.Format("Record Row Number : " + "'{0}', " + "{1}, " + "Column Name : " + "'{2}'," + " Column Value : " + "'{3}'," + " Error Description : " + "'{4}'" + "{5}", rowTraverse, errlt, records[0][columnTraverse], dataValue, errorofRecord, Environment.NewLine);
+                                    }
+                                }
+
+                            }
+                        }
+                    }
+
+                }
+
+                else
+                {
+                    var actualErrMsg = string.Format("Record Row Number : " + "{0}" + " We are expecting the Data for " + "'{1}'" + " columns but This row has the Data for " + "'{2}'" + " columns " + "{3}", rowTraverse, fileHeaderColumnCount, records[rowTraverse].Count, Environment.NewLine);
+                    errMsgInSingleLine += actualErrMsg;
+                    continue;
+                }
+            }
+
+            return errMsgInSingleLine;
+        }
+
+
+
+        [FunctionName("StructureValidation_HttpStart")]
+        public static async Task<HttpResponseMessage> HttpStart(
+            [HttpTrigger(AuthorizationLevel.Anonymous, "get", "post")] HttpRequestMessage req,
+            HttpRequest reqInput,
+            [DurableClient] IDurableOrchestrationClient starter,
+            ILogger log)
+        {
+            string fileName = "", pipeLineName = "", pipelineID = "", executionTime = "", validationKeyColumns = "";
+            string entireFilePathWithFilename = "", metaData = "", storageAccountName = "", containerName = "";
+
+            fileName = reqInput.Query["FileName"];
+            pipeLineName = reqInput.Query["PipeLineName"];
+            pipelineID = reqInput.Query["PipelineID"];
+            executionTime = reqInput.Query["ExecutionTime"];
+            entireFilePathWithFilename = reqInput.Query["SourceFilePath"];
+            metaData = reqInput.Query["MetaData"];
+            storageAccountName = reqInput.Query["StorageAccountName"];
+            containerName = reqInput.Query["ContainerName"];
+            validationKeyColumns = reqInput.Query["ValidationKeyColumns"];
+
+            string requestBody = await new StreamReader(reqInput.Body).ReadToEndAsync();
+            dynamic data = JsonConvert.DeserializeObject(requestBody);
+            fileName = fileName ?? data?.FileName;
+            pipeLineName = pipeLineName ?? data?.PipeLineName;
+            pipelineID = pipelineID ?? data?.PipelineID;
+            executionTime = executionTime ?? data?.ExecutionTime;
+            entireFilePathWithFilename = entireFilePathWithFilename ?? data?.SourceFilePath;
+            metaData = metaData ?? data?.MetaData;
+            storageAccountName = storageAccountName ?? data?.StorageAccountName;
+            containerName = containerName ?? data?.ContainerName;
+            validationKeyColumns = validationKeyColumns ?? data?.ValidationKeyColumns;
+
+            string instanceId = await starter.StartNewAsync("StructureValidation", new InputDataFromPipeline { FileName = fileName, PipeLineName = pipeLineName, PipelineID = pipelineID, ExecutionTime = executionTime, EntireFilePathWithFilename = entireFilePathWithFilename, MetaData = metaData, StorageAccountName = storageAccountName, ContainerName = containerName, ValidationKeyColumns = validationKeyColumns });
+            log.LogInformation($"Started orchestration with ID = '{instanceId}'.");
+            return starter.CreateCheckStatusResponse(req, instanceId);
+        }
+
+        public static string DataType(string data, string dataType)
+        {
+            var errorMsg = "";
+            switch (dataType)
+            {
+                case "nvarchar":
+                    //calls ContainsUnicodeCharacter method to check whether the data is nvarchar type of data.
+                    if (ContainsUnicodeCharacter(data.ToString()) == false)
+                    {
+                        errorMsg = "Data type is not " + dataType + ".";
+                    }
+                    break;
+
+                case "varchar":
+                    //calls ContainsUnicodeCharacter method to check whether the data is varchar type of data.
+                    if (ContainsUnicodeCharacter(data.ToString()) == false)
+                    {
+                        errorMsg = "Data type is not " + dataType + ".";
+                    }
+                    break;
+
+                case "int":
+                    //calls an IsInteger function to check whether the data is int or not.
+                    if (!IsInteger(data.ToString()))
+                    {
+                        errorMsg = "Data type is not " + dataType + ".";
+                    }
+                    break;
+
+                case "tinyint":
+                    //calls IsTinyInt method to check whether the data is byte type of data.
+                    if (!IsTinyInt(data.ToString()))
+                    {
+                        errorMsg = "Data type is not " + dataType + ".";
+                    }
+                    break;
+                case "decimal":
+                    //calls IsDecimal method to check whether the data is decimal type of data.
+                    if (!IsDecimal(data.ToString()))
+                    {
+                        errorMsg = "Data type is not " + dataType + ".";
+                    }
+                    break;
+                case "money":
+                    //calls IsDecimal method to check whether the data is Money type of data.
+                    if (!IsDecimal(data.ToString()))
+                    {
+                        errorMsg = "Data type is not " + dataType + ".";
+                    }
+                    break;
+                case "smallint":
+
+                    //calls IsInt method to check whether the data is int type of data.
+                    if (!IsInt(data.ToString()))
+                    {
+                        errorMsg = "Data type is not " + dataType + ".";
+                    }
+                    break;
+                case "datetime":
+                    //calls IsDateTime method to check whether the data is Date time type of data.
+                    if (!IsDateTime(data.ToString()))
+                    {
+                        errorMsg = "Data type is not " + dataType + ".";
+                    }
+                    break;
+                case "datetime2":
+                    //calls IsDateTime method to check whether the data is Date time type of data.
+                    if (!IsDateTime(data.ToString()))
+                    {
+                        errorMsg = "Data type is not " + dataType + ".";
+                    }
+                    break;
+
+                case "date":
+                    //calls IsDateTime method to check whether the data is Date type of data.
+                    if (!IsDateTime(data.ToString()))
+                    {
+                        errorMsg = "Data type is not " + dataType + ".";
+                    }
+                    break;
+                case "float":
+                    //calls IsDouble method to check whether the data is double type of data.
+                    if (!IsDouble(data.ToString()))
+                    {
+                        errorMsg = "Data type is not " + dataType + ".";
+                    }
+                    break;
+                case "bit":
+                    //Calls the IsBit function to check whether the data in the current column is Boolean as per c#.
+                    if (!IsBit(data.ToString()))
+                    {
+                        errorMsg = "Data type is not " + dataType + ".";
+                    }
+                    break;
+                case "varbinary":
+                    //calls IsBinary method to check whether the data is binary type of data.
+                    if (!IsBinary(data.ToString()))
+                    {
+                        errorMsg = "Data type is not " + dataType + ".";
+                    }
+                    break;
+                case "uniqueidentifier":
+                    //calls IsUniIdentifier method to check whether the data is unique identifier type of data.
+                    if (!IsUniIdentifier(data.ToString()))
+                    {
+                        errorMsg = "Data type is not " + dataType + ".";
+                    }
+                    break;
+                case "char":
+                    //calls ContainsUnicodeCharacter method to check whether the data is char type of data.
+                    if (ContainsUnicodeCharacter(data.ToString()) == false)
+                    {
+                        errorMsg = "Data type is not " + dataType + ".";
+                    }
+                    break;
+                case "nchar":
+                    //calls ContainsUnicodeCharacter method to check whether the data is char type of data.
+                    if (ContainsUnicodeCharacter(data.ToString()) == false)
+                    {
+                        errorMsg = "Data type is not " + dataType + ".";
+                    }
+                    break;
+                case "smalldatetime":
+                    //calls IsDateTime method to check whether the data is smalldatetime type of data.
+                    if (!IsDateTime(data.ToString()))
+                    {
+                        errorMsg = "Data type is not " + dataType + ".";
+                    }
+                    break;
+                case "datetimeoffset":
+                    //calls IsDateTimeOffset method to check whether the data is Date time offset type of data.
+                    if (!IsDateTimeOffset(data.ToString()))
+                    {
+                        errorMsg = "Data type is not " + dataType + ".";
+                    }
+
+                    break;
+
+                case "binary":
+                    //calls IsBinary method to check whether the data is binary type of data.
+                    if (!IsBinary(data.ToString()))
+                    {
+                        errorMsg = "Data type is not " + dataType + ".";
+                    }
+
+                    break;
+                case "bigint":
+                    //calls IsLong method to check whether the data is long type of data.
+                    if (!IsLong(data.ToString()))
+                    {
+                        errorMsg = "Data type is not " + dataType + ".";
+                    }
+                    break;
+
+                case "time":
+                    //calls IsTimeSpan method to check whether the data is TimeSpan type of data.
+                    if (!IsTimeSpan(data.ToString()))
+                    {
+                        errorMsg = "Data type is not " + dataType + ".";
+                    }
+
+                    break;
+                case "smallmoney":
+                    //calls IsDecimal method to check whether the data is smallmoney type of data.
+                    if (!IsDecimal(data.ToString()))
+                    {
+                        errorMsg = "Data type is not " + dataType + ".";
+                    }
+                    break;
+
+                case "numeric":
+                    //calls IsDecimal method to check whether the data is numeric type of data.
+                    if (!IsDecimal(data.ToString()))
+                    {
+                        errorMsg = "Data type is not " + dataType + ".";
+                    }
+
+                    break;
+                case "real":
+                    //calls IsSingle method to check whether the data is single type of data.
+                    if (!IsSingle(data.ToString()))
+                    {
+                        errorMsg = "Data type is not " + dataType + ".";
+                    }
+                    break;
+                case "text":
+
+                    //calls ContainsUnicodeCharacter method to check whether the data is text type of data.
+                    if (ContainsUnicodeCharacter(data.ToString()) == false)
+                    {
+                        errorMsg = "Data type is not " + dataType + ".";
+                    }
+                    break;
+
+
+                default:
+                    errorMsg = "Data type " + "'" + dataType + "'" + " is not validated from our C# Code.";
+                    break;
+            }
+
+            return errorMsg;
+        }
+
+        public static string MaximumLength(string data, string maxLenValue)
+        {
+            var errorMsg = "";
+            if (maxLenValue != "")
+            {
+                int intMaxLen = Convert.ToInt32(maxLenValue);
+                if (data.Length > intMaxLen)
+                {
+                    errorMsg = "Max Length Error! Max Length allowed value is " + maxLenValue + ".";
+                }
+            }
+            return errorMsg;
+        }
+
+        public static string NumericPrecisionAndScale(string data, string precisionValue, string scaleValue)
+        {
+            Int32 precisionLen = 0;
+            Int32 ScaleLen = 0;
+            string errorMsg = "";
+
+            if (data.IndexOf(".") >= 0)
+            {
+
+                //calculates the length of the scale
+                ScaleLen = data.Split(".")[1].Length;
+            }
+
+            //calculates the length of the precision
+            precisionLen = data.Length - 1;
+
+            if (precisionValue != "")
+            {
+                if (precisionLen > Convert.ToInt32(precisionValue))
+                {
+                    errorMsg += "Numeric Precision Error! Maximum allowed limit is " + precisionValue + ".";
+                }
+            }
+            if (scaleValue != "")
+            {
+                if (ScaleLen > Convert.ToInt32(scaleValue))
+                {
+                    errorMsg += "Numeric Scale Error! Allowed Numeric Scale value is " + scaleValue + ".";
+                }
+            }
+
+
+            return errorMsg;
+        }
+
+        public static bool IsDecimal(string value)
+        {
+            decimal number;
+            bool canConvert = true;
+            canConvert = Decimal.TryParse(value, out number);
+            return canConvert;
+        }
+
+        public static bool IsTimeSpan(string value)
+        {
+            TimeSpan number;
+            bool canConvert = true;
+            canConvert = TimeSpan.TryParse(value, out number);
+            return canConvert;
+        }
+
+        public static bool IsUniIdentifier(string value)
+        {
+            Guid number;
+            bool canConvert = true;
+            canConvert = Guid.TryParse(value, out number);
+            return canConvert;
+        }
+
+        public static bool IsSingle(string value)
+        {
+            Single number;
+            bool canConvert = true;
+            canConvert = Single.TryParse(value, out number);
+            return canConvert;
+        }
+
+        public static bool IsLong(string value)
+        {
+            Int64 number;
+            bool canConvert = true;
+            canConvert = Int64.TryParse(value, out number);
+            return canConvert;
+        }
+
+        public static bool IsInteger(string value)
+        {
+            Int32 number;
+            bool canConvert = true;
+            canConvert = Int32.TryParse(value, out number);
+            return canConvert;
+        }
+
+        public static bool IsInt(string value)
+        {
+            Int16 number;
+            bool canConvert = true;
+            canConvert = Int16.TryParse(value, out number);
+            return canConvert;
+        }
+
+        public static bool IsDateTime(string value)
+        {
+            DateTime number;
+            bool canConvert = true;
+            canConvert = DateTime.TryParse(value, out number);
+            return canConvert;
+        }
+
+        public static bool ContainsUnicodeCharacter(string input)
+        {
+            const int MaxAnsiCode = 255;
+            bool canConvert = true;
+            //Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+            //Encoding encoding = Encoding.GetEncoding(1252);
+
+            Encoding encoding = Encoding.UTF8;
+
+            byte[] bytes = encoding.GetBytes(input); foreach (var val in bytes)
+            {
+                if (val > MaxAnsiCode)
+                {
+                    canConvert = false;
+                }
+            }
+            return canConvert;
+        }
+
+        public static bool IsTinyInt(string value)
+        {
+            Byte number;
+            bool canConvert = true;
+            canConvert = Byte.TryParse(value, out number);
+            return canConvert;
+        }
+
+        public static bool IsByteArray(string value)
+        {
+            //Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+            //Encoding encoding = Encoding.GetEncoding(1252);
+
+            Encoding encoding = Encoding.UTF8;
+
+            byte[] array = encoding.GetBytes(value);
+            Byte number;
+            bool canConvert = true;
+            bool canConvertind = true;
+            //Loop through contents of the array.
+            foreach (byte element in array)
+            {
+                canConvert = Byte.TryParse(value, out number);
+                if (canConvert == false)
+                {
+                    canConvertind = canConvert;
+                }
+            }
+            canConvert = canConvertind;
+            return canConvert;
+        }
+
+        public static bool IsBinary(string value)
+        {
+            bool canConvert = true;
+            foreach (var c in value)
+            {
+                if (c != '0' && c != '1')
+                {
+                    canConvert = false;
+                }
+            }
+            return canConvert;
+        }
+
+        public static bool IsBit(string value)
+        {
+            string v = value.ToLower();
+            bool canConvert = false;
+            if (v == "0" || v == "1" || v == "true" || v == "false")
+            {
+                canConvert = true;
+            }
+
+            return canConvert;
+        }
+
+        public static bool IsDouble(string value)
+        {
+            double number;
+            bool canConvert = true;
+            canConvert = Double.TryParse(value, out number);
+            return canConvert;
+        }
+
+        public static bool IsDateTimeOffset(string value)
+        {
+            DateTimeOffset number;
+            bool canConvert = true;
+            canConvert = DateTimeOffset.TryParse(value, out number);
+            return canConvert;
+        }
+    }
+}
+
