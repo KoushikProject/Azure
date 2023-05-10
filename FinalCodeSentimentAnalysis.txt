@@ -9,10 +9,14 @@ import re
 import string
 from nltk.tokenize import RegexpTokenizer
 import nltk
+import os
 from nltk.corpus import stopwords
 nltk.download('omw-1.4')
 nltk.download('wordnet')
 nltk.download('stopwords')
+import os
+from azure.keyvault.secrets import SecretClient
+from azure.identity import DefaultAzureCredential
 
 #TextBlobAlgorithm
 
@@ -135,7 +139,17 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 algorithm_name = req_body.get('algorithm_name')
         if not blob_name==None:
             file_name = blob_name.split('.')[0]
-        account_key = 'fkiwBHQeuY5opMfvcySYeHaDC7CJqD5VxQH5RvYv1ilTeqpHe/8yYrxuf/Twogl1SPh8Lazt3bPa+AStt6Hy4Q=='
+            
+        #Accesing acceskey of storage account using Azure Key Vault using service principal auth.
+        keyvaultname = os.getenv("keyvaultname")
+        #keyvaultname = 'keyvaultname'
+        KVUri = f"https://{keyvaultname}.vault.azure.net"
+        credential = DefaultAzureCredential()
+        secretName = 'accesskey'
+        client = SecretClient(vault_url=KVUri, credential=credential)
+        retrieved_secret = client.get_secret(secretName)
+        #account_key = os.getenv("account_key")
+        account_key = retrieved_secret.value
         
         #create a client to interact with blob storage
         connect_str = 'DefaultEndpointsProtocol=https;AccountName=' + account_name + ';AccountKey=' + account_key + ';EndpointSuffix=core.windows.net'
@@ -162,8 +176,8 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                                             permission=BlobSasPermissions(read=True),
                                             expiry=datetime.utcnow() + timedelta(hours=1))
                 
-        sas_url = 'https://' + account_name+'.blob.core.windows.net/' + container_name + '/' +blob_name + '?' + sas_i
-                
+        sas_url = 'https://' + account_name+'.blob.core.windows.net/' + container_name + '/' + blob_name + '?' + sas_i
+        print(sas_url) 
         df = pd.read_csv(sas_url)
         X = df[column_name]
         x_clean=[getcleanedtext(i) for i in X]
@@ -188,6 +202,27 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 status_code=200
             )
 
+        
+
+
+localsettings.json
+------------------------
+
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "connectionstring*************************",
+    "FUNCTIONS_WORKER_RUNTIME": "python",
+    "AzureWebJobs.HttpTrigger.Disabled": "true",
+    "AzureWebJobs.sentimentTrigger.Disabled": "false",
+    "AzureWebJobs.finalsentiment.Disabled": "false",
+    "AzureWebJobs.httpreq.Disabled": "true",
+    "AZURE_TENANT_ID": "***************************",
+    "AZURE_CLIENT_ID": "***************************",
+    "AZURE_CLIENT_SECRET": "********************************",
+    "keyvaultname": "**************"
+  }
+}
 
 Requirement.txt
 ------------------     
@@ -196,3 +231,5 @@ TextBlob
 pandas
 vaderSentiment
 azure.storage.blob
+azure.keyvault.secrets
+azure.identity
