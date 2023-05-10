@@ -179,16 +179,16 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         sas_url = 'https://' + account_name+'.blob.core.windows.net/' + container_name + '/' + blob_name + '?' + sas_i
         print(sas_url) 
         dfjson = pd.read_json(sas_url)
-        namelt = []
-        userlt = []
+        #namelt = []
+        #userlt = []
         textlt = []
         for i in range(0,len(dfjson)):
-            namelt.append(dfjson['replies'][i]['user']['name'])
-            userlt.append(dfjson['replies'][i]['user']['username'])
+            #namelt.append(dfjson['replies'][i]['user']['name'])
+            #userlt.append(dfjson['replies'][i]['user']['username'])
             textlt.append(dfjson['replies'][i]['text'])
         dfprocess = pd.DataFrame({
-        'name': namelt,
-        'username': userlt,
+        #'name': namelt,
+        #'username': userlt,
         'text': textlt,
         })
         X = dfprocess[column_name]
