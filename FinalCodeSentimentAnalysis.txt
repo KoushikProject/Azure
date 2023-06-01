@@ -238,6 +238,4 @@ azure.storage.blob
 azure.keyvault.secrets
 azure.identity
 classification_report
-scikit-learn
-
-        
+scikit-learn     
