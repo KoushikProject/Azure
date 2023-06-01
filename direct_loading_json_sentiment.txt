@@ -1,6 +1,14 @@
+
+# ========================================================================================
+# Author	:		Koushik R
+# Create date	:		2023-05-10
+# Description	:		Python code to perform sentiment analysis on twitter data
+# ========================================================================================					
+
+#Required Packages
+
 import logging
 import azure.functions as func
-from datetime import datetime, timedelta
 from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
 from textblob import TextBlob
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
@@ -15,9 +23,18 @@ nltk.download('omw-1.4')
 nltk.download('wordnet')
 nltk.download('stopwords')
 import os
+from nltk.corpus import wordnet
+from nltk.stem import WordNetLemmatizer
+from textblob import TextBlob
+STOPWORDS = set(stopwordlist)
+english_punctuations = string.punctuation
+punctuations_list = english_punctuations
+tokenizer = RegexpTokenizer(r'\w+')
+lemmatizer = WordNetLemmatizer()
 from azure.keyvault.secrets import SecretClient
 from azure.identity import DefaultAzureCredential
 
+# ========================================================================================================================
 #TextBlobAlgorithm
 
 def textblob_algorithm(df):
@@ -41,7 +58,7 @@ def textblob_algorithm(df):
     df['TextBlob_Analysis'] = df['TextBlob_Polarity'].apply(getAnalysis )
     return df
 
-###################################################################################################
+# ========================================================================================================================
 #VaderAlgorithm
 
 def vader_algorithm(df):
@@ -60,19 +77,13 @@ def vader_algorithm(df):
     df['Emotion']= df['compound'].apply(lambda x : vader_analysis(x))
     return df
 
-###################################################################################################
+# ========================================================================================================================
 #PreProcessingFunction
-
-english_punctuations = string.punctuation
-en_stopwords = set(stopwords.words("english"))
-punctuations_list = english_punctuations
-tokenizer = RegexpTokenizer(r'\w+')
-st = nltk.PorterStemmer()
-lm = nltk.WordNetLemmatizer()
 
 def getcleanedtext(text):
     text=text.lower()
     text = re.sub('@[\w]+','',text)
+    
     def cleaning_stopwords(text):
         return " ".join([word for word in str(text).split() if word not in en_stopwords])
     stop_word_removal = cleaning_stopwords(text)
@@ -83,38 +94,57 @@ def getcleanedtext(text):
     punctuation_removal = cleaning_punctuations(stop_word_removal)
     
     def cleaning_repeating_char(text):
-        return re.sub(r'(.)1+', r'1', text)
+        return re.sub("(.)\\1{2,}", "\\1", text)
     repeating_char_removal = cleaning_repeating_char(punctuation_removal)
-     
-    def cleaning_URLs(data):
-        return re.sub('((www.[^s]+)|(https?://[^s]+))',' ',data)
-    clean_url = cleaning_URLs(repeating_char_removal)
+    
+    def remove_urls(text):
+        url_pattern = re.compile(r'https?://\S*|www\.\S+')
+        return url_pattern.sub(r'', text)
+    removed_url = remove_urls(repeating_char_removal)
+    
+    def remove_html(text):
+        html_pattern = re.compile('<.*?>')
+        return html_pattern.sub(r'', text)
+    removed_html = remove_html(removed_url)
+    
+    def remove_emoji(text):
+        emoji_pattern = re.compile("["
+                           u"\U0001F600-\U0001F64F"  # emoticons
+                           u"\U0001F300-\U0001F5FF"  # symbols & pictographs
+                           u"\U0001F680-\U0001F6FF"  # transport & map symbols
+                           u"\U0001F1E0-\U0001F1FF"  # flags 
+                           u"\U00002702-\U000027B0"
+                           u"\U000024C2-\U0001F251"
+                           "]+", flags=re.UNICODE)
+        return emoji_pattern.sub(r'', text)
+    removed_emoji = remove_emoji(removed_html)
     
     def cleaning_numbers(data):
         return re.sub('[0-9]+', '', data)
-    clean_numbers = cleaning_numbers(clean_url)
+    clean_numbers = cleaning_numbers(removed_emoji)
     
-    def remove_single_char(data):
-        return re.sub(r'\s+[a-zA-Z]\s+', '', data)
-    remove_single = remove_single_char(clean_numbers)
+    def lemmatize_words(text):
+        wordnet_map = {"N":wordnet.NOUN, "V":wordnet.VERB, "J":wordnet.ADJ, "R":wordnet.ADV}
+        pos_tagged_text = nltk.pos_tag(text.split())
+        return " ".join([lemmatizer.lemmatize(word, wordnet_map.get(pos[0], wordnet.NOUN)) for word, pos in pos_tagged_text])
+    lemmatize = lemmatize_words(clean_numbers)
     
-    def stemming_on_text(data):
-        text = [st.stem(word) for word in data]
-        return data
-    stemming = stemming_on_text(remove_single)
+    def remove_correction(text):
+        return ' '.join(str(TextBlob(i).correct()) for i in text.split())
+    spell_correction = remove_correction(lemmatize)
     
-    def lemmatizer_on_text(data):
-        text = [lm.lemmatize(word) for word in data]
-        return data
-    lemmatize = lemmatizer_on_text(stemming)
+    def remove_white_space(data):
+        return re.sub(' +', ' ',data) 
+    removed_space = remove_white_space(spell_correction)
+    removed_space = removed_space.strip()
     
-    
-    tokens=tokenizer.tokenize(lemmatize)
+    tokens=tokenizer.tokenize(removed_space)
     without_single_chr = [word for word in tokens if len(word) > 2]
     clean_text=' '.join(without_single_chr)
     return clean_text
 
-###################################################################################################
+
+# ========================================================================================================================
 #EntryPointToTheProgram
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
@@ -138,17 +168,16 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 column_name = req_body.get('column_name')
                 algorithm_name = req_body.get('algorithm_name')
         if not blob_name==None:
-            file_name = blob_name.split('.')[0]
+            file_name = blob_name.split('/')[1]
+            file_name_output = file_name.split('.')[0]
             
-        #Accesing acceskey of storage account using Azure Key Vault using service principal auth.
+        #Accesing acceskey of storage account stored in Azure Key Vault using service principal auth.
         keyvaultname = os.getenv("keyvaultname")
-        #keyvaultname = 'keyvaultname'
         KVUri = f"https://{keyvaultname}.vault.azure.net"
         credential = DefaultAzureCredential()
-        secretName = 'accesskey'
+        secretName = ''
         client = SecretClient(vault_url=KVUri, credential=credential)
         retrieved_secret = client.get_secret(secretName)
-        #account_key = os.getenv("account_key")
         account_key = retrieved_secret.value
         
         #create a client to interact with blob storage
@@ -158,18 +187,8 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         #use the client to connect to the container
         container_client = blob_service_client.get_container_client(container_name)
 
-        blob_list = []
-        for blob_i in container_client.list_blobs():
-            blob_list.append(blob_i.name)
-
-            #for i in blob_list:
-            #    print(i)
-                
-        df_list = []
-            #generate a shared access signiture for files and load them into Python
-        for blob_i in blob_list:
-            #generate a shared access signature for each blob file
-            sas_i = generate_blob_sas(account_name = account_name,
+        #generate a shared access signature for each blob file
+        sas_i = generate_blob_sas(account_name = account_name,
                                             container_name = container_name,
                                             blob_name = blob_name,
                                             account_key=account_key,
@@ -177,30 +196,32 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                                             expiry=datetime.utcnow() + timedelta(hours=1))
                 
         sas_url = 'https://' + account_name+'.blob.core.windows.net/' + container_name + '/' + blob_name + '?' + sas_i
-        print(sas_url) 
-        dfjson = pd.read_json(sas_url)
-        #namelt = []
-        #userlt = []
-        textlt = []
-        for i in range(0,len(dfjson)):
-            #namelt.append(dfjson['replies'][i]['user']['name'])
-            #userlt.append(dfjson['replies'][i]['user']['username'])
-            textlt.append(dfjson['replies'][i]['text'])
-        dfprocess = pd.DataFrame({
-        #'name': namelt,
-        #'username': userlt,
-        'text': textlt,
-        })
-        X = dfprocess[column_name]
-        x_clean=[getcleanedtext(i) for i in X]
-        dfprocess['cleaned_text'] = x_clean
-        dfprocess = textblob_algorithm(dfprocess) if(algorithm_name=="textblob") else vader_algorithm(dfprocess)  
 
-        output = dfprocess.to_csv (index_label="idx", encoding = "utf-8")
-        blob_client = blob_service_client.get_blob_client(container=container_name, blob="output/"+file_name+"_"+algorithm_name+"Output"+".csv") 
-        blob_client.upload_blob(output,overwrite=True)
+        #Read Json File using Pandas library in python
+        twitterdatajson = pd.read_json(sas_url)
+        textlt = []
+        for i in range(0,len(twitterdatajson)):
+            textlt.append(twitterdatajson['replies'][i]['text'])
+        twitterdata = pd.DataFrame({
+        'text': textlt
+        })
+        X = twitterdata[column_name]
+
+        #Invoking Preprocessing function on the 'text' column
+        x_clean=[getcleanedtext(i) for i in X]
+        twitterdata['cleaned_text'] = x_clean
+
+        #Invoking the required algorithm based on the algorithm_name
+        twitterdata = textblob_algorithm(twitterdata) if(algorithm_name=="textblob") else vader_algorithm(twitterdata)  
+
+        #Output the processed dataframe into a csv file
+        analysed_output= twitterdata.to_csv (index_label="idx", encoding = "utf-8")
+
+        #Uploading the output into storage account 
+        blob_client = blob_service_client.get_blob_client(container=container_name, blob="output/"+file_name_output+"_"+algorithm_name+"Output"+".csv") 
+        blob_client.upload_blob(analysed_output,overwrite=True)
         return func.HttpResponse(
-            output,
+            analysed_output,
             status_code=200
         )
     except Exception as ex:
